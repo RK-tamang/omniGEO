@@ -1,0 +1,76 @@
+---
+title: "Your robots.txt might be blocking the AI crawlers you need"
+description: "A two-minute check that catches one of the most common — and most invisible — reasons brands never appear in AI answers."
+date: "2026-09-05"
+category: "SEO"
+author: "Udayan Verma"
+role: "Co-founder, Engineering"
+accent: "coral"
+---
+
+Here is an uncomfortable pattern we see in almost every audit: a site with excellent content, strong rankings, and zero citations in AI answers. The cause is frequently a single line in `robots.txt` or a CDN setting nobody remembers turning on.
+
+## The four bots that matter
+
+| Bot | Owner | What it powers |
+| --- | --- | --- |
+| `GPTBot` | OpenAI | ChatGPT browsing and retrieval |
+| `OAI-SearchBot` | OpenAI | ChatGPT search results |
+| `PerplexityBot` | Perplexity | Perplexity answers |
+| `Google-Extended` | Google | Gemini and AI training/grounding controls |
+
+There is an important distinction here. **Blocking a training crawler is a policy choice. Blocking a search crawler is a visibility choice.** Plenty of teams intend the first and accidentally do the second.
+
+## The two-minute check
+
+Open your domain’s `robots.txt` and search for `GPTBot`, `PerplexityBot` and `Google-Extended`. You are looking for rules like:
+
+```
+User-agent: *
+Disallow: /
+```
+
+If that is the whole file, you have blocked everything that respects it. If you see:
+
+```
+User-agent: GPTBot
+Disallow: /
+```
+
+you have opted out of OpenAI’s crawler — which may be deliberate, but should be a decision, not an accident.
+
+Next, check what your CDN or host is doing. Cloudflare’s bot-fight mode, Vercel’s attack challenge, and some managed WAF rule sets will serve a challenge page to unfamiliar crawlers. The page returns `403` or an interstitial instead of your content. From your browser everything looks fine; from the crawler, your site does not exist.
+
+## Five common misconfigurations
+
+1. **Blanket disallow.** A developer adds `Disallow: /` during a staging migration and it ships to production.
+2. **Aggressive bot protection.** “Block AI scrapers” toggles in CDN dashboards often cover search bots too.
+3. **JavaScript-only content.** If the answer text is injected client-side behind interactions, many crawlers never see it.
+4. **Paywalls and interstitials.** Content behind a login wall cannot be cited, even if users can see it.
+5. **No indexable HTML.** Client-rendered pages that depend on API calls at runtime can be invisible to crawlers that do not execute JavaScript.
+
+## What good looks like
+
+For a site that wants to be cited:
+
+```
+User-agent: *
+Allow: /
+
+Sitemap: https://example.com/sitemap.xml
+```
+
+If you want to exclude training while staying retrievable, target the specific training bots and leave search bots alone. Document the decision next to the rule so the next person does not “clean it up” by accident.
+
+Then verify. Do not trust the file alone:
+
+- Fetch a key page with a crawler user-agent and confirm a `200`.
+- Check server logs for hits from the bot user-agents.
+- In Search Console, confirm Google can render the page.
+- Re-run your AI prompt set after 48–72 hours.
+
+## The part most audits miss
+
+Crawlability is necessary, not sufficient. A page can be perfectly accessible and still never cited because it is ambiguous, thin or uncorroborated. But if you are blocked, nothing else matters — which is why it belongs at the top of the fix list.
+
+Our [site audit](/features/site-audit) checks Googlebot and the answer-engine crawlers in the same crawl, flags blocked templates, and tracks the fix. If you would rather check by hand first, the steps above will get you most of the way there.

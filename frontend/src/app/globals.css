@@ -1,0 +1,678 @@
+@import "tailwindcss";
+
+/*
+ * Theme tokens.
+ *
+ * Every colour below is a *semantic* token — `--color-surface`, `--color-chalk`,
+ * `--color-line` — not a raw hex. Two themes define the same token names, so a
+ * single `data-theme` attribute on <html> re-skins the entire app without any
+ * component needing to know which theme is active.
+ *
+ *   :root / [data-theme="light"]   light (the default)
+ *   [data-theme="dark"]            dark
+ */
+@theme {
+  /* Accents — identical in both themes so brand colour stays recognisable */
+  --color-iris: #8b5cf6;
+  --color-aqua: #22d3ee;
+  --color-mint: #a3e635;
+  --color-gold: #fbbf24;
+  --color-coral: #fb7185;
+
+  /* Secondary accents — used by tool-category chips and badges. */
+  --color-purple: #a78bfa;
+  --color-pink: #f472b6;
+  --color-gray: #94a3b8;
+
+  /* Highlight — the strip/wash colour used on cards and section rules.
+     Mapped to a theme token so light can carry its own amber identity. */
+  --color-amber: #ff9f1c;
+
+  /*
+   * Semantic tokens.
+   *
+   * These MUST be declared here (inside `@theme`) for Tailwind to emit the
+   * matching utilities — `text-mist`, `bg-surface/60`, `border-line`, … .
+   * A colour declared only in `:root` sets the custom property but produces
+   * no utility class, so the element silently falls back to the inherited
+   * value. The per-theme blocks below override these at runtime; because the
+   * utilities reference `var(--color-*)`, a `data-theme` swap re-skins every
+   * component without touching a single className.
+   *
+   * The values here are the dark-theme defaults (they mirror the `:root`
+   * block) and act as the fallback when no `data-theme` is set.
+   */
+  --color-ink-950: #05050a;
+  --color-ink-900: #090912;
+  --color-ink-850: #0d0d18;
+  --color-ink-800: #12121f;
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-line-strong: rgba(255, 255, 255, 0.16);
+  --color-chalk: #f2f2f8;
+  --color-mist: #9c9cb0;
+  --color-mist-dim: #7c7c92;
+  --color-surface: #05050a;
+  --color-surface-1: rgba(255, 255, 255, 0.02);
+  --color-surface-2: rgba(255, 255, 255, 0.04);
+  --color-surface-3: rgba(255, 255, 255, 0.07);
+  --color-surface-solid: #0d0d18;
+  --color-veil: rgba(9, 9, 16, 0.97);
+  --color-veil-2: rgba(18, 18, 30, 0.97);
+  --color-grid: rgba(255, 255, 255, 0.045);
+  --color-code-bg: #0a0a12;
+  --color-code-text: #dedeec;
+  --color-code-inline: #e9d5ff;
+  --color-quote-text: #d4d4e2;
+  --color-body-strong: #cbcbda;
+  --color-em: #d8d8e6;
+  --color-on-accent: #ffffff;
+  --color-sel: rgba(139, 92, 246, 0.35);
+  --color-sel-text: #ffffff;
+  --color-highlight: #8b5cf6;
+  --color-highlight-soft: #22d3ee;
+  --color-highlight-line: rgba(139, 92, 246, 0.6);
+  --color-highlight-wash: rgba(139, 92, 246, 0.16);
+  --color-highlight-ink: #ffffff;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-display: var(--font-instrument), Georgia, "Times New Roman", serif;
+}
+
+/* ---------- dark theme (opt-in) ---------- */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Ink — deep near-black palette */
+  --color-ink-950: #05050a;
+  --color-ink-900: #090912;
+  --color-ink-850: #0d0d18;
+  --color-ink-800: #12121f;
+
+  /* Surfaces, lines & text */
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-line-strong: rgba(255, 255, 255, 0.16);
+  --color-chalk: #f2f2f8;
+  --color-mist: #9c9cb0;
+  --color-mist-dim: #7c7c92;
+
+  /* Surface stack — one step per elevation */
+  --color-surface: #05050a;
+  --color-surface-1: rgba(255, 255, 255, 0.02);
+  --color-surface-2: rgba(255, 255, 255, 0.04);
+  --color-surface-3: rgba(255, 255, 255, 0.07);
+  --color-surface-solid: #0d0d18;
+  --color-veil: rgba(9, 9, 16, 0.97);
+  --color-veil-2: rgba(18, 18, 30, 0.97);
+  --color-grid: rgba(255, 255, 255, 0.045);
+  --color-code-bg: #0a0a12;
+  --color-code-text: #dedeec;
+  --color-code-inline: #e9d5ff;
+  --color-quote-text: #d4d4e2;
+  --color-body-strong: #cbcbda;
+  --color-em: #d8d8e6;
+  --color-on-accent: #ffffff;
+  --color-sel: rgba(139, 92, 246, 0.35);
+  --color-sel-text: #ffffff;
+  --color-grain: 0.05;
+  --color-shadow: rgba(139, 92, 246, 0.45);
+  --color-glow: rgba(255, 255, 255, 0.06);
+
+  /* Elevation — the shadow stack used by dashboard surfaces. Kept in tokens
+     (rather than hard-coded per component) so light and dark each get a
+     shadow that actually reads against their own background. */
+  --shadow-panel: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.7);
+  --shadow-panel-hover: 0 2px 4px rgba(0, 0, 0, 0.45), 0 14px 32px -14px rgba(0, 0, 0, 0.85);
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.5), 0 16px 40px -16px rgba(0, 0, 0, 0.9);
+  --text-gradient-from: #c4b5fd;
+  --text-gradient-mid: #8b5cf6;
+  --text-gradient-to: #22d3ee;
+  --link-soft: #c4b5fd;
+
+  /* Highlight strip — violet identity in dark */
+  --color-highlight: #8b5cf6;
+  --color-highlight-soft: #22d3ee;
+  --color-highlight-line: rgba(139, 92, 246, 0.6);
+  --color-highlight-wash: rgba(139, 92, 246, 0.16);
+  --color-highlight-ink: #ffffff;
+}
+
+/* ---------- light theme (default) ---------- */
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* Ink — warm off-white / cream palette, mirrored elevation */
+  --color-ink-950: #faf7f2;
+  --color-ink-900: #fffdf9;
+  --color-ink-850: #f4efe6;
+  --color-ink-800: #ece5d9;
+
+  /* Surfaces, lines & text — warm neutral (hue ~35) */
+  --color-line: rgba(60, 48, 30, 0.12);
+  --color-line-strong: rgba(60, 48, 30, 0.24);
+  --color-chalk: #241f18;
+  --color-mist: #6b6152;
+  --color-mist-dim: #8d8373;
+
+  --color-surface: #faf7f2;
+  --color-surface-1: rgba(60, 48, 30, 0.03);
+  --color-surface-2: rgba(60, 48, 30, 0.055);
+  --color-surface-3: rgba(60, 48, 30, 0.085);
+  --color-surface-solid: #fffdf9;
+  --color-veil: rgba(255, 253, 249, 0.97);
+  --color-veil-2: rgba(252, 249, 243, 0.97);
+  --color-grid: rgba(60, 48, 30, 0.06);
+  --color-code-bg: #f4efe6;
+  --color-code-text: #3a3227;
+  --color-code-inline: #6d28d9;
+  --color-quote-text: #4a4034;
+  --color-body-strong: #443c31;
+  --color-em: #4a4034;
+  --color-on-accent: #ffffff;
+  --color-sel: rgba(139, 92, 246, 0.22);
+  --color-sel-text: #2a1160;
+  --color-grain: 0.03;
+  --color-shadow: rgba(120, 85, 30, 0.22);
+  --color-glow: rgba(60, 48, 30, 0.1);
+
+  /* Elevation — warmer and softer in light, where shadows read as depth
+     rather than as a dark halo. */
+  --shadow-panel: 0 1px 2px rgba(60, 48, 30, 0.06), 0 6px 18px -10px rgba(60, 48, 30, 0.16);
+  --shadow-panel-hover: 0 2px 4px rgba(60, 48, 30, 0.07), 0 12px 28px -12px rgba(60, 48, 30, 0.22);
+  --shadow-raised: 0 1px 2px rgba(60, 48, 30, 0.07), 0 18px 40px -16px rgba(60, 48, 30, 0.26);
+  --text-gradient-from: #6d28d9;
+  --text-gradient-mid: #7c3aed;
+  --text-gradient-to: #0e7490;
+  --link-soft: #6d28d9;
+
+  /* Highlight strip — amber identity in light (#FF9F1C) */
+  --color-highlight: #ff9f1c;
+  --color-highlight-soft: #ffb84d;
+  --color-highlight-line: rgba(255, 159, 28, 0.85);
+  --color-highlight-wash: rgba(255, 159, 28, 0.16);
+  --color-highlight-ink: #3d2400;
+}
+
+/* Keep Tailwind's `dark:` variant meaningful even though we script the theme. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: clip;
+}
+
+body {
+  background: var(--color-surface);
+  color: var(--color-chalk);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: clip;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+::selection {
+  background: var(--color-sel);
+  color: var(--color-sel-text);
+}
+
+:where(a, button, summary, select, input, textarea):focus-visible {
+  outline: 2px solid var(--color-iris);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* Subtle film-grain overlay for a premium texture */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: var(--color-grain);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@layer utilities {
+  .container-page {
+    width: 100%;
+    max-width: 76rem;
+    margin-inline: auto;
+    padding-inline: 1.5rem;
+  }
+  @media (min-width: 768px) {
+    .container-page {
+      padding-inline: 2rem;
+    }
+  }
+
+  .glass {
+    background: linear-gradient(180deg, var(--color-surface-2), var(--color-surface-1));
+    border: 1px solid var(--color-line);
+    backdrop-filter: blur(12px);
+  }
+
+  /* opaque variant — used where content behind must not be readable
+     (e.g. the scan report sign-up gate sitting over a blurred panel) */
+  .glass-strong {
+    background: linear-gradient(180deg, var(--color-veil-2), var(--color-veil));
+    border: 1px solid var(--color-line);
+    backdrop-filter: blur(20px);
+  }
+
+  .glass-hover {
+    transition: border-color 0.35s ease, transform 0.35s ease, box-shadow 0.35s ease;
+  }
+  .glass-hover:hover {
+    border-color: var(--color-line-strong);
+    transform: translateY(-2px);
+    box-shadow: 0 24px 60px -32px var(--color-shadow);
+  }
+
+  /*
+   * Elevation utilities.
+   *
+   * Dashboard surfaces sit on a flat page background, so a hairline border
+   * alone leaves them visually flat. These add a soft drop shadow that
+   * separates the surface from what is behind it, plus a slightly stronger
+   * one on hover. The values live in the theme blocks so each theme gets a
+   * shadow tuned to its own background.
+   */
+  .elevate {
+    box-shadow: var(--shadow-panel);
+  }
+  .elevate-hover {
+    transition: box-shadow 0.3s ease, transform 0.3s ease, border-color 0.3s ease;
+  }
+  .elevate-hover:hover {
+    box-shadow: var(--shadow-panel-hover);
+    transform: translateY(-2px);
+  }
+  .elevate-raised {
+    box-shadow: var(--shadow-raised);
+  }
+
+  /* Hairline accent rule used at the top of cards and section bands.
+     Follows the theme's highlight colour (violet in dark, amber in light). */
+  .strip-line {
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--color-highlight) 50%,
+      transparent 100%
+    );
+  }
+
+  /* Soft amber/violet wash behind highlighted panels. */
+  .strip-wash {
+    background-image: linear-gradient(
+      135deg,
+      var(--color-highlight-wash) 0%,
+      transparent 70%
+    );
+  }
+
+  /* Pill / chip filled with the highlight colour, for "recommended" markers. */
+  .strip-fill {
+    background-image: linear-gradient(
+      90deg,
+      var(--color-highlight) 0%,
+      var(--color-highlight-soft) 100%
+    );
+    color: var(--color-highlight-ink);
+  }
+
+  .kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-mist);
+  }
+
+  .text-gradient {
+    background-image: linear-gradient(
+      100deg,
+      var(--text-gradient-from) 0%,
+      var(--text-gradient-mid) 40%,
+      var(--text-gradient-to) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .text-gradient-warm {
+    background-image: linear-gradient(100deg, var(--color-gold) 0%, var(--color-coral) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .grid-bg {
+    background-image:
+      linear-gradient(var(--color-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--color-grid) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 30%, transparent 75%);
+  }
+
+  .aurora {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(110px);
+    pointer-events: none;
+  }
+
+  /* Scroll-reveal */
+  .reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Marquee */
+@keyframes omni-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-marquee {
+  animation: omni-marquee 38s linear infinite;
+}
+.marquee-mask {
+  mask-image: linear-gradient(90deg, transparent, black 12%, black 88%, transparent);
+}
+
+/* Blinking caret for the typing effect */
+@keyframes omni-caret {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  55%,
+  100% {
+    opacity: 0;
+  }
+}
+.animate-caret {
+  animation: omni-caret 1.1s steps(1) infinite;
+}
+
+/* Gentle float for hero cards */
+@keyframes omni-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+.animate-float {
+  animation: omni-float 7s ease-in-out infinite;
+}
+
+/* Slow aurora drift */
+@keyframes omni-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(40px, -30px, 0) scale(1.12);
+  }
+}
+.animate-drift {
+  animation: omni-drift 16s ease-in-out infinite;
+}
+
+/* FAQ details rows */
+.faq-row summary {
+  list-style: none;
+  cursor: pointer;
+}
+.faq-row summary::-webkit-details-marker {
+  display: none;
+}
+.faq-row .faq-icon {
+  transition: transform 0.3s ease;
+}
+.faq-row[open] .faq-icon {
+  transform: rotate(45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .animate-marquee,
+  .animate-float,
+  .animate-drift,
+  .animate-caret {
+    animation: none !important;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Long-form article typography */
+.prose-omni {
+  color: var(--color-mist);
+  font-size: 1.0625rem;
+  line-height: 1.85;
+}
+
+.prose-omni > * + * {
+  margin-top: 1.35em;
+}
+
+.prose-omni > p:first-child {
+  font-size: 1.2rem;
+  line-height: 1.7;
+  color: var(--color-body-strong);
+}
+
+.prose-omni h2 {
+  margin-top: 2.6em;
+  margin-bottom: 0.7em;
+  color: var(--color-chalk);
+  font-size: 1.65rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  scroll-margin-top: 6rem;
+}
+
+.prose-omni h3 {
+  margin-top: 2.1em;
+  margin-bottom: 0.55em;
+  color: var(--color-chalk);
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  scroll-margin-top: 6rem;
+}
+
+.prose-omni h4 {
+  margin-top: 1.8em;
+  margin-bottom: 0.4em;
+  color: var(--color-chalk);
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
+.prose-omni p {
+  text-wrap: pretty;
+}
+
+.prose-omni a {
+  color: var(--link-soft);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--color-iris) 45%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: color 0.2s ease, text-decoration-color 0.2s ease;
+}
+
+.prose-omni a:hover {
+  color: var(--color-chalk);
+  text-decoration-color: var(--color-aqua);
+}
+
+.prose-omni strong {
+  color: var(--color-chalk);
+  font-weight: 600;
+}
+
+.prose-omni em {
+  color: var(--color-em);
+}
+
+.prose-omni ul,
+.prose-omni ol {
+  padding-left: 1.45em;
+}
+
+.prose-omni ul {
+  list-style: disc;
+}
+
+.prose-omni ol {
+  list-style: decimal;
+}
+
+.prose-omni li {
+  margin-top: 0.55em;
+  padding-left: 0.2em;
+}
+
+.prose-omni li::marker {
+  color: color-mix(in srgb, var(--color-iris) 90%, transparent);
+}
+
+.prose-omni li > ul,
+.prose-omni li > ol {
+  margin-top: 0.55em;
+}
+
+.prose-omni blockquote {
+  margin-inline: 0;
+  border-left: 2px solid color-mix(in srgb, var(--color-iris) 60%, transparent);
+  border-radius: 0 0.75rem 0.75rem 0;
+  background: var(--color-surface-1);
+  padding: 1.15rem 1.4rem;
+  color: var(--color-quote-text);
+  font-family: var(--font-instrument), Georgia, serif;
+  font-style: italic;
+  font-size: 1.15rem;
+  line-height: 1.6;
+}
+
+.prose-omni blockquote p {
+  margin: 0;
+}
+
+.prose-omni blockquote p + p {
+  margin-top: 0.75em;
+}
+
+.prose-omni code {
+  border: 1px solid var(--color-line);
+  border-radius: 0.35rem;
+  background: var(--color-surface-2);
+  padding: 0.12em 0.38em;
+  color: var(--color-code-inline);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.85em;
+}
+
+.prose-omni pre {
+  overflow-x: auto;
+  border: 1px solid var(--color-line);
+  border-radius: 0.85rem;
+  background: var(--color-code-bg);
+  padding: 1.25rem 1.4rem;
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+
+.prose-omni pre code {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--color-code-text);
+  font-size: 0.85rem;
+}
+
+.prose-omni table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin-block: 1.8em;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.prose-omni thead {
+  border-bottom: 1px solid var(--color-line-strong);
+}
+
+.prose-omni th {
+  padding: 0.7rem 1rem 0.7rem 0;
+  color: var(--color-chalk);
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.prose-omni td {
+  border-bottom: 1px solid var(--color-line);
+  padding: 0.7rem 1rem 0.7rem 0;
+  vertical-align: top;
+}
+
+.prose-omni tr:last-child td {
+  border-bottom: 0;
+}
+
+.prose-omni hr {
+  margin-block: 2.5em;
+  border: 0;
+  border-top: 1px solid var(--color-line);
+}
+
+.prose-omni img {
+  border: 1px solid var(--color-line);
+  border-radius: 0.85rem;
+}
+
+.prose-omni figcaption {
+  margin-top: 0.7em;
+  color: var(--color-mist-dim);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.7rem;
+  text-align: center;
+}
+

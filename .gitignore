@@ -1,0 +1,53 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files
+.env
+.env.*
+!.env.example
+
+# build output
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# testing / coverage
+coverage/
+
+# typescript / next
+next-env.d.ts
+
+# local data stores
+.data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# stray temp/editor files
+*.new
+*.bak
+*.orig
+*.tmp
+
+# os / editor
+.DS_Store
+Thumbs.db
+*.pem
+.vercel

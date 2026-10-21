@@ -1,0 +1,101 @@
+---
+title: "GEO, explained: how to become the answer AI gives"
+description: "Generative Engine Optimisation is not a new trick for a new algorithm. It is the work of being a credible, retrievable source — done deliberately. Here is the mental model we use."
+date: "2026-09-30"
+category: "AI Search"
+author: "Advik Sharma"
+role: "Co-founder, Product"
+accent: "iris"
+featured: true
+---
+
+Somebody in your category is being recommended by ChatGPT right now. They did not pay for the placement, and they may not even rank first on Google. They were simply the most retrievable, most corroborated, most legible source for that question.
+
+That is the whole problem in one sentence. **GEO — generative engine optimisation — is the work of making sure that source is you.**
+
+## What actually happens when someone asks an AI
+
+An answer engine does four things, in roughly this order:
+
+1. **Rewrites the question** into one or more search queries.
+2. **Retrieves** a set of candidate pages and documents.
+3. **Selects and synthesises** an answer from the most credible-seeming material.
+4. **Cites** a handful of sources.
+
+Most teams only optimise for step two. But being retrieved is not the same as being cited. A model can read your page and still recommend someone else, because synthesis is driven by **entity clarity** (does the page say clearly who you are and what you do?), **corroboration** (do other sources say the same thing?), and **structure** (is the claim easy to lift?).
+
+> Ranking fourth on Google with a clear, well-corroborated page beats ranking first with a vague one. In AI answers, the best-written source wins more often than the most-linked one.
+
+## GEO versus SEO
+
+They share infrastructure but not incentives.
+
+| | SEO | GEO |
+| --- | --- | --- |
+| Goal | Rank in a list of links | Be named in a synthesised answer |
+| Unit | Keyword and page | Question and claim |
+| Signal | Links, relevance, intent | Retrievability, clarity, corroboration |
+| Success | Position and clicks | Mentions, sentiment, citations |
+| Failure mode | Page two | Absence from the answer |
+
+This is why “add more keywords” is not a GEO strategy. The question behind the keyword matters more than the keyword itself. If 40 people a month search “best CRM for agencies” and 4,000 ask an assistant the same thing in natural language, the second number is the one that shapes revenue.
+
+## The four levers
+
+We have found four levers move AI visibility more than anything else.
+
+### 1. Prompt coverage
+
+You cannot fix a question you have never measured. Build a prompt set from the questions buyers actually ask: category questions, comparison questions, problem questions and brand questions. Track them across engines on a schedule.
+
+A useful starting ratio is 60% category and problem prompts, 25% comparisons, 15% branded. Branded prompts flatter you; the other 85% are where you win or lose.
+
+### 2. Retrievability
+
+Check that AI crawlers can reach the pages you want cited. A `Disallow: /` rule for GPTBot, a Cloudflare bot challenge, or content that only renders after three JavaScript hops will quietly remove you from consideration.
+
+Run a crawl that checks Googlebot **and** the answer-engine bots. Our [site audit](/features/site-audit) does this natively, but you can also do it by hand in about ten minutes.
+
+### 3. Entity clarity
+
+Every page that should be cited needs to answer three questions without ambiguity:
+
+- Who is this about?
+- What do they do, for whom?
+- Why should this source be believed?
+
+Organization schema, an explicit “what we do” sentence, named authors and consistent naming across the web all help. Models are pattern matchers; ambiguity gets rounded to the most common pattern, which is usually your competitor.
+
+### 4. Corroboration
+
+Answer engines trust claims that appear in more than one independent place. That means review sites, community threads, industry directories, partner pages and press — not just your blog. If your positioning exists only on your own domain, it is a claim. If it exists in four other places, it is a fact the model can use.
+
+## How to measure it
+
+Three numbers are enough to start:
+
+- **Mention rate** — the share of tracked prompts where your brand appears.
+- **Citation share** — the share of answers that cite your domain.
+- **Share of voice** — your mentions as a fraction of all brand mentions in the set.
+
+Track them weekly, per engine. Aggregating all four engines into one score hides the useful part: ChatGPT and AI Overviews often disagree about who the leader is, and the fixes differ.
+
+## A 30-day starting plan
+
+**Week one.** Build a 50-prompt set. Run a baseline. Note the competitor named most often.
+
+**Week two.** Audit crawlability and entity clarity on the ten pages closest to those prompts. Fix anything blocking retrieval.
+
+**Week three.** Rewrite the two pages that answer the highest-value questions. Lead with the claim, support it with a source, and structure it so a paragraph can be lifted cleanly.
+
+**Week four.** Publish one comparison page and one original-data page. Both give other sources something to cite — which is how corroboration starts.
+
+Then re-run the prompt set. Most teams see movement in four to six weeks; meaningful share-of-voice gains take a quarter.
+
+## The trap
+
+GEO is not a hack, and it is not “prompt injection for marketers.” Attempts to manipulate answers tend to work briefly and then get filtered, penalised, or simply ignored. The durable strategy is unglamorous: be clear about what you do, make it easy to retrieve, and give people a reason to repeat it.
+
+That is also, conveniently, good SEO. Which is why we track both in one place.
+
+Ready to see where you stand? [Run a free AI visibility scan](/scan) and see your first prompt-set report in under a minute.
