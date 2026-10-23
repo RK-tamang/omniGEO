@@ -3,33 +3,13 @@ import { NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth-session";
 import { getSettings, resetSettings, saveSettings, type Settings } from "@/server/db";
 import { backendEnabled, backendFetch } from "@/server/backend-client";
+import { fromBackend, type BackendSettingsResponse } from "@/server/settings";
 
 export const dynamic = "force-dynamic";
-
-type BackendSettingsResponse = {
-  workspace?: { name?: string };
-  settings?: Partial<Settings>;
-  domains?: Array<{ domain: string; isPrimary?: boolean }>;
-};
 
 async function requireSession() {
   const cookieStore = await cookies();
   return verifySessionToken(cookieStore.get(SESSION_COOKIE)?.value);
-}
-
-/**
- * Convert the backend's `{ workspace, settings, domains }` payload into the
- * `Settings` shape the frontend pages already consume.
- */
-function fromBackend(payload: BackendSettingsResponse, base: Settings): Settings {
-  const remote = payload.settings ?? {};
-  const whitelist = payload.domains?.map((d) => d.domain).filter(Boolean);
-  return {
-    ...base,
-    ...remote,
-    workspaceName: payload.workspace?.name ?? remote.workspaceName ?? base.workspaceName,
-    whitelist: whitelist && whitelist.length > 0 ? whitelist : (remote.whitelist ?? base.whitelist),
-  };
 }
 
 export async function GET() {

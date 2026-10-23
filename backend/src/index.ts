@@ -9,17 +9,40 @@ import websocket from "@fastify/websocket";
 import { db } from "./db/index.js";
 import {
   users, workspaces, domains, scans, billingUsage, payments, webhooks, apiKeys,
-  settings, crawls, contentItems
+  settings, crawls, contentItems, contactRequests, prompts, citations, auditIssues,
+  competitors, competitorPrompts, alerts, reports
 } from "./db/schema.js";
-import { eq, and, desc, gte, lte, count, sql } from "drizzle-orm";
-import { verifyPassword, generateToken, verifyToken, generateApiKey, verifyApiKey, verifyWebhookSignature } from "./utils/auth.js";
+import { eq, and, desc, gte, lte, inArray, sql } from "drizzle-orm";
+import { verifyPassword, generateToken, generateApiKey, verifyWebhookSignature } from "./utils/auth.js";
 import { hashPassword } from "./utils/auth.js";
 import { runScan } from "./engine/runner.js";
+import {
+  DASHBOARD_BLOCKS,
+  DASHBOARD_BLOCK_GROUPS,
+  DASHBOARD_PRESETS,
+  normalizeDashboardLayout,
+} from "./db/dashboard-layout.js";
 import { generateContent, modifyContent, usdToNpr } from "./services/llm.js";
-import { scrapeUrl, scrapeBulk } from "./services/crawler.js";
+import { scrapeUrl, scrapeBulk, fetchTextResource } from "./services/crawler.js";
 import { getLLMMentions, getKeywordIdeas, getMapsRankings } from "./services/dataforseo.js";
+import { parseBotAccess } from "./services/robots.js";
 import { z } from "zod";
 import { createId } from "@paralleldrive/cuid2";
+
+/**
+ * Whether the session cookie carries the Secure flag.
+ *
+ * A browser only stores a Secure cookie over HTTPS, so tying the flag to
+ * NODE_ENV quietly breaks a plain-HTTP deployment (the Docker stack on
+ * http://localhost). Follow the public URL instead, with an explicit
+ * override for deployments behind a TLS terminator.
+ */
+function cookieSecure(): boolean {
+  const explicit = process.env.COOKIE_SECURE;
+  if (explicit === "true") return true;
+  if (explicit === "false") return false;
+  return (process.env.FRONTEND_URL ?? "").startsWith("https://");
+}
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -54,7 +77,11 @@ const app = Fastify({
       target: "pino-pretty",
       options: { colorize: true, translateTime: "HH:MM:ss Z", ignore: "pid,hostname" }
     } : undefined
-  }
+  },
+  // Behind a TLS terminator the real client address arrives in
+  // X-Forwarded-For. Opt in with TRUST_PROXY=true; leave it off when the API is
+  // reachable directly, otherwise clients could spoof their address.
+  trustProxy: process.env.TRUST_PROXY === "true"
 });
 
 await app.register(cors, {
@@ -65,7 +92,7 @@ await app.register(cors, {
 
 await app.register(cookie, {
   secret: process.env.COOKIE_SECRET || "dev-secret",
-  parseOptions: { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" }
+  parseOptions: { httpOnly: true, secure: cookieSecure(), sameSite: "lax" }
 });
 
 await app.register(jwt, {
@@ -74,10 +101,15 @@ await app.register(jwt, {
   sign: { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
 });
 
+// Requests from the frontend arrive over the compose network, so they all
+// share one address. The default is deliberately generous for that case;
+// lower it with RATE_LIMIT_MAX when the API is exposed directly.
 await app.register(rateLimit, {
-  max: 100,
-  timeWindow: "1 minute",
-  keyGenerator: (req) => req.ip
+  max: Number(process.env.RATE_LIMIT_MAX ?? 1000),
+  timeWindow: process.env.RATE_LIMIT_WINDOW ?? "1 minute",
+  keyGenerator: (req) => req.ip,
+  // Liveness probes must never be throttled.
+  allowList: (req) => req.url === "/health",
 });
 
 await app.register(websocket);
@@ -108,7 +140,14 @@ const authSchema = {
     email: z.string().email(),
     password: z.string().min(8),
     name: z.string().min(2).max(100),
-    workspaceName: z.string().min(2).max(100).optional(),
+    /** The brand the workspace tracks. */
+    brandName: z.string().min(2).max(100),
+    /** What the business does — drives the prompt and content templates. */
+    category: z.string().min(2).max(60),
+    /** The business website. Becomes the workspace's tracked domain. */
+    website: z.string().min(3).max(255),
+    /** The market the workspace reports on, e.g. "en-IN". */
+    market: z.string().max(20).optional(),
     plan: z.enum(["Starter", "Pro Growth", "Enterprise"]).default("Starter")
   }),
   changePassword: z.object({
@@ -207,7 +246,7 @@ app.post("/api/auth/login", async (request, reply) => {
 
   reply.setCookie("auth_token", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: cookieSecure(),
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 7,
     path: "/"
@@ -227,10 +266,32 @@ app.post("/api/auth/register", async (request, reply) => {
   const userId = createId();
   const workspaceId = createId();
   const passwordHash = await hashPassword(data.password);
-  const workspaceName = data.workspaceName || `${data.name}'s Workspace`;
 
-  await db.transaction((tx) => {
-    tx.insert(users).values({
+  // The website the business gave us is the domain the workspace tracks.
+  const domain = data.website
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .split("/")[0]
+    .split("?")[0];
+
+  const workspaceSettings = {
+    whitelist: [domain],
+    brandName: data.brandName,
+    category: data.category,
+    timezone: "Asia/Kolkata",
+    locale: data.market || "en-IN",
+    competitors: "",
+    runDay: "Monday",
+    digest: "Weekly",
+    emailDigest: true,
+    criticalAlerts: true,
+    productUpdates: false,
+  };
+
+  await db.transaction(async (tx) => {
+    await tx.insert(users).values({
       id: userId,
       email: data.email,
       passwordHash,
@@ -239,34 +300,38 @@ app.post("/api/auth/register", async (request, reply) => {
       role: "owner",
       workspaceId,
       emailVerified: false
-    }).run();
+    });
 
-    tx.insert(workspaces).values({
+    await tx.insert(workspaces).values({
       id: workspaceId,
-      name: workspaceName,
+      name: data.brandName,
       ownerId: userId,
       plan: data.plan,
       billingInterval: "monthly",
       billingCycleStart: new Date(),
-      settings: {
-        whitelist: [],
-        timezone: "Asia/Kolkata",
-        locale: "en-IN",
-        competitors: "",
-        runDay: "Monday",
-        digest: "Weekly",
-        emailDigest: true,
-        criticalAlerts: true,
-        productUpdates: false,
-      }
-    }).run();
+      settings: workspaceSettings
+    });
+
+    await tx.insert(domains).values({
+      id: createId(),
+      workspaceId,
+      domain,
+      isPrimary: true
+    });
+
+    await tx.insert(settings).values({
+      id: createId(),
+      workspaceId,
+      key: "workspace_settings",
+      value: workspaceSettings
+    });
   });
 
   const token = generateToken({ userId, workspaceId, email: data.email, name: data.name, plan: data.plan });
 
   reply.setCookie("auth_token", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: cookieSecure(),
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 7,
     path: "/"
@@ -320,10 +385,10 @@ app.post("/api/auth/guest", async (request, reply) => {
   const passwordHash = await hashPassword(createId() + createId());
   const plan = data.plan;
 
-  const demoDomains = ["northwindlabs.com", "shop.northwindlabs.com"];
+  const demoDomains: string[] = [];
 
-  await db.transaction((tx) => {
-    tx.insert(users).values({
+  await db.transaction(async (tx) => {
+    await tx.insert(users).values({
       id: userId,
       email,
       passwordHash,
@@ -332,9 +397,9 @@ app.post("/api/auth/guest", async (request, reply) => {
       role: "owner",
       workspaceId,
       emailVerified: false
-    }).run();
+    });
 
-    tx.insert(workspaces).values({
+    await tx.insert(workspaces).values({
       id: workspaceId,
       name: "Guest Workspace",
       ownerId: userId,
@@ -352,23 +417,14 @@ app.post("/api/auth/guest", async (request, reply) => {
         criticalAlerts: true,
         productUpdates: false
       }
-    }).run();
-
-    tx.insert(domains).values(
-      demoDomains.map((domain, index) => ({
-        id: createId(),
-        workspaceId,
-        domain,
-        isPrimary: index === 0
-      }))
-    ).run();
+    });
   });
 
   const token = generateToken({ userId, workspaceId, email, name: "Guest Explorer", plan });
 
   reply.setCookie("auth_token", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: cookieSecure(),
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 7,
     path: "/"
@@ -443,6 +499,65 @@ app.get("/api/workspace", { preHandler: [app.authenticate] }, async (request, re
   const domainsList = await db.select().from(domains).where(eq(domains.workspaceId, user.workspaceId));
 
   return { workspace: workspace[0], domains: domainsList };
+});
+
+/**
+ * Everything the dashboard renders, straight from the workspace's own rows.
+ *
+ * The frontend has a static demo dataset it falls back to when no backend is
+ * running; this endpoint is the live equivalent so the dashboard reflects what
+ * the workspace has actually tracked, generated and crawled.
+ */
+app.get("/api/workspace/data", { preHandler: [app.authenticate] }, async (request, reply) => {
+  const user = request.user as { workspaceId: string };
+  const workspaceId = user.workspaceId;
+
+  const [workspaceRows, domainRows, promptRows, citationRows, contentRows, scanRows, crawlRows, auditRows, competitorRows, alertRows, reportRows, webhookRows] =
+    await Promise.all([
+      db.select().from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1),
+      db.select().from(domains).where(eq(domains.workspaceId, workspaceId)),
+      db.select().from(prompts).where(eq(prompts.workspaceId, workspaceId)),
+      db.select().from(citations).where(eq(citations.workspaceId, workspaceId)),
+      db.select().from(contentItems).where(eq(contentItems.workspaceId, workspaceId)),
+      db.select().from(scans).where(eq(scans.workspaceId, workspaceId)),
+      db.select().from(crawls).where(eq(crawls.workspaceId, workspaceId)),
+      db.select().from(auditIssues).where(eq(auditIssues.workspaceId, workspaceId)),
+      db.select().from(competitors).where(eq(competitors.workspaceId, workspaceId)),
+      db.select().from(alerts).where(eq(alerts.workspaceId, workspaceId)),
+      db.select().from(reports).where(eq(reports.workspaceId, workspaceId)),
+      db.select().from(webhooks).where(eq(webhooks.workspaceId, workspaceId)),
+    ]);
+
+  // competitor_prompts has no workspace column of its own — it hangs off the
+  // competitors, so scope it by the competitors this workspace owns.
+  const competitorPromptRows = competitorRows.length
+    ? await db
+        .select()
+        .from(competitorPrompts)
+        .where(
+          inArray(
+            competitorPrompts.competitorId,
+            competitorRows.map((c) => c.id),
+          ),
+        )
+    : [];
+
+  return {
+    workspace: workspaceRows[0] ?? null,
+    domains: domainRows,
+    prompts: promptRows,
+    citations: citationRows,
+    contentItems: contentRows,
+    scans: scanRows,
+    crawls: crawlRows,
+    auditIssues: auditRows,
+    competitors: competitorRows,
+    competitorPrompts: competitorPromptRows,
+    alerts: alertRows,
+    reports: reportRows,
+    // The webhook secret never leaves the backend.
+    webhooks: webhookRows.map(({ secret: _secret, ...rest }) => rest),
+  };
 });
 
 app.patch("/api/workspace", { preHandler: [app.authenticate] }, async (request, reply) => {
@@ -613,6 +728,57 @@ const crawlerSchema = {
     onlyMainContent: z.boolean().default(true)
   })
 };
+
+/**
+ * Live AI crawler access.
+ *
+ * Fetches the workspace domain's real robots.txt and reports, per answer-engine
+ * bot, whether that bot can reach the site. Nothing here is estimated — the
+ * answer comes from the file the site is serving right now.
+ */
+app.get("/api/crawler/robots", { preHandler: [app.authenticate] }, async (request, reply) => {
+  const user = request.user as { workspaceId: string };
+  const requested = (request.query as Record<string, string | undefined>)?.domain;
+
+  let domain = requested?.trim();
+  if (!domain) {
+    const domainRows = await db
+      .select()
+      .from(domains)
+      .where(eq(domains.workspaceId, user.workspaceId));
+    domain = (domainRows.find((d) => d.isPrimary) ?? domainRows[0])?.domain;
+  }
+
+  if (!domain) {
+    return reply.code(400).send({ error: "No domain is set for this workspace." });
+  }
+
+  const origin = domain.startsWith("http") ? domain.replace(/\/$/, "") : `https://${domain.replace(/\/$/, "")}`;
+  const robots = await fetchTextResource(`${origin}/robots.txt`);
+
+  if (!robots.ok) {
+    // No robots.txt was served. We did not read a policy, so we do not report
+    // one — the UI says the file is missing rather than claiming every bot is
+    // allowed.
+    return reply.code(200).send({
+      domain,
+      found: false,
+      status: robots.status,
+      body: "",
+      bots: [],
+      fetchedAt: new Date().toISOString(),
+    });
+  }
+
+  return reply.code(200).send({
+    domain,
+    found: true,
+    status: robots.status,
+    body: robots.body,
+    bots: parseBotAccess(robots.body),
+    fetchedAt: new Date().toISOString(),
+  });
+});
 
 app.post("/api/crawler/scrape", { preHandler: [app.authenticate] }, async (request, reply) => {
   const user = request.user as { workspaceId: string };
@@ -989,7 +1155,6 @@ app.post("/api/payments/verify", { preHandler: [app.authenticate] }, async (requ
 });
 
 app.get("/api/billing/usage", { preHandler: [app.authenticate] }, async (request, reply) => {
-  const user = request.user as { workspaceId: string; userId: string };
   const { startDate, endDate, workspaceId } = request.query as Record<string, string>;
 
   const targetWorkspaceId = workspaceId || (request.user as any).workspaceId;
@@ -1031,16 +1196,27 @@ app.get("/api/settings", { preHandler: [app.authenticate] }, async (request, rep
 
   const workspace = await db.select().from(workspaces).where(eq(workspaces.id, user.workspaceId)).limit(1);
 
+  // The workspace row carries the account defaults (brand, category, tracked
+  // domain); the settings row is the editable overlay on top of them.
+  const workspaceSettings = (workspace[0]?.settings as Record<string, any>) || {};
+  const overlay = (settingsRow[0]?.value as Record<string, any>) || {};
+
   return {
     workspace: workspace[0],
-    settings: (settingsRow[0]?.value as Record<string, any>) || {},
+    settings: { ...workspaceSettings, ...overlay },
     domains: await db.select().from(domains).where(eq(domains.workspaceId, user.workspaceId))
   };
 });
 
 app.patch("/api/settings", { preHandler: [app.authenticate] }, async (request, reply) => {
   const user = request.user as { workspaceId: string };
-  const data = request.body as Record<string, any>;
+  const body = request.body as Record<string, any>;
+
+  // A layout arriving through the generic settings endpoint is normalised
+  // here too, so a client cannot smuggle unknown block ids into storage.
+  const data = body.dashboardLayout !== undefined
+    ? { ...body, dashboardLayout: normalizeDashboardLayout(body.dashboardLayout) }
+    : body;
 
   const existing = await db.select().from(settings).where(eq(settings.workspaceId, user.workspaceId)).limit(1);
   const merged = { ...((existing[0]?.value as Record<string, any>) || {}), ...data };
@@ -1058,17 +1234,33 @@ app.patch("/api/settings", { preHandler: [app.authenticate] }, async (request, r
 
   if (data.whitelist) {
     await db.delete(domains).where(eq(domains.workspaceId, user.workspaceId));
-    for (const domain of data.whitelist) {
-      const normalized = domain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
-      await db.insert(domains).values({ id: createId(), workspaceId: user.workspaceId, domain: normalized, isPrimary: false });
+    // The first entry is the primary domain — the one the dashboard reports
+    // on and the crawler check reads.
+    for (const [index, raw] of data.whitelist.entries()) {
+      const normalized = String(raw).toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+      if (!normalized) continue;
+      await db.insert(domains).values({
+        id: createId(),
+        workspaceId: user.workspaceId,
+        domain: normalized,
+        isPrimary: index === 0,
+      });
     }
+  }
+
+  // The workspace row carries the same name the settings form edits, so keep
+  // the two in step — otherwise a rename looks like it was never saved.
+  if (typeof data.workspaceName === "string" && data.workspaceName.trim()) {
+    await db
+      .update(workspaces)
+      .set({ name: data.workspaceName.trim().slice(0, 100), updatedAt: new Date() })
+      .where(eq(workspaces.id, user.workspaceId));
   }
 
   return { success: true, settings: merged };
 });
 
 app.post("/api/api-keys", { preHandler: [app.authenticate] }, async (request, reply) => {
-  const user = request.user as { workspaceId: string; userId: string };
   const data = z.object({ name: z.string().min(2), permissions: z.array(z.string()).default(["read"]), expiresInDays: z.number().min(1).max(365).optional() }).parse(request.body);
 
   const { key, prefix, hash } = generateApiKey();
@@ -1149,6 +1341,87 @@ app.post("/api/webhooks/incoming/:event", async (request, reply) => {
   }
 
   return { success: true };
+});
+
+app.get("/api/dashboard/layout", { preHandler: [app.authenticate] }, async (request, reply) => {
+  const user = request.user as { workspaceId: string };
+  const settingsRow = await db.select().from(settings).where(eq(settings.workspaceId, user.workspaceId)).limit(1);
+  const stored = (settingsRow[0]?.value as Record<string, any>) || {};
+
+  return {
+    layout: normalizeDashboardLayout(stored.dashboardLayout),
+    blocks: DASHBOARD_BLOCKS,
+    groups: DASHBOARD_BLOCK_GROUPS,
+    presets: DASHBOARD_PRESETS,
+  };
+});
+
+app.patch("/api/dashboard/layout", { preHandler: [app.authenticate] }, async (request, reply) => {
+  const user = request.user as { workspaceId: string };
+  const layout = normalizeDashboardLayout(request.body);
+
+  const existing = await db.select().from(settings).where(eq(settings.workspaceId, user.workspaceId)).limit(1);
+  const merged = {
+    ...((existing[0]?.value as Record<string, any>) || {}),
+    dashboardLayout: layout,
+  };
+
+  if (existing[0]) {
+    await db.update(settings).set({ value: merged, updatedAt: new Date() }).where(eq(settings.id, existing[0].id));
+  } else {
+    await db.insert(settings).values({
+      id: createId(),
+      workspaceId: user.workspaceId,
+      key: "workspace_settings",
+      value: merged,
+    });
+  }
+
+  return { success: true, layout };
+});
+
+// Contact requests are unauthenticated — they come from the public marketing
+// site, so there is no session to require.
+app.post("/api/contact", async (request, reply) => {
+  const data = z.object({
+    intent: z.string().max(60).optional(),
+    name: z.string().min(1).max(120),
+    email: z.string().email().max(200),
+    company: z.string().min(1).max(160),
+    website: z.string().max(300).optional(),
+    teamSize: z.string().max(60).optional(),
+    budget: z.string().max(60).optional(),
+    message: z.string().max(4000).optional(),
+  }).safeParse(request.body);
+
+  if (!data.success) {
+    return reply.code(400).send({ error: "Please provide your name, work email and company." });
+  }
+
+  const inserted = await db.insert(contactRequests).values({
+    id: createId(),
+    intent: data.data.intent ?? "general",
+    name: data.data.name,
+    email: data.data.email,
+    company: data.data.company,
+    website: data.data.website,
+    teamSize: data.data.teamSize,
+    budget: data.data.budget,
+    message: data.data.message,
+  }).returning();
+
+  request.log.info({ contactId: inserted[0]?.id, intent: inserted[0]?.intent }, "contact request received");
+
+  return { success: true, id: inserted[0]?.id };
+});
+
+app.get("/api/contact", { preHandler: [app.authenticate] }, async (request, reply) => {
+  const rows = await db
+    .select()
+    .from(contactRequests)
+    .orderBy(desc(contactRequests.createdAt))
+    .limit(100);
+  return { success: true, requests: rows };
 });
 
 app.get("/health", async () => ({ status: "ok", timestamp: Date.now() }));

@@ -1,7 +1,31 @@
+import type { Metadata } from "next";
 import { Panel } from "@/components/dashboard/panel";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { getWorkspaceData } from "@/server/workspace-data";
+import { mergeActivity } from "@/lib/workspace-data";
 
-export default function ScheduledChecksPage() {
+export const metadata: Metadata = { title: "Scheduled Checks" };
+
+export default async function ScheduledChecksPage() {
+  const data = await getWorkspaceData();
+  const settings = data?.workspace?.settings ?? null;
+
+  const scans = (data?.scans ?? [])
+    .slice()
+    .sort((a, b) => (Date.parse(String(b.createdAt ?? 0)) || 0) - (Date.parse(String(a.createdAt ?? 0)) || 0));  const completed = scans.filter((s) => s.status === "completed").length;
+  const failed = scans.filter((s) => s.status === "failed").length;
+  const successRate = scans.length ? Math.round(((scans.length - failed) / scans.length) * 100) : 0;
+
+  const tiles = [
+    { label: "Runs recorded", value: `${scans.length}`, tone: "text-chalk" },
+    { label: "Completed", value: `${completed}`, tone: "text-chalk" },
+    { label: "Success rate", value: scans.length ? `${successRate}%` : "—", tone: "text-mint" },
+    { label: "Next scheduled", value: settings?.runDay ?? "not set", tone: "text-chalk" },
+  ];
+
+  const recent = mergeActivity(data).slice(0, 6);
+
   return (
     <div className="space-y-6">
       <Panel title="Scheduled Visibility Checks" sub="Daily or scheduled AI visibility checks across all tracked prompts and engines">
@@ -10,16 +34,57 @@ export default function ScheduledChecksPage() {
             <Button>Run Check Now</Button>
             <Button variant="secondary">Configure Schedule</Button>
           </div>
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5"><p className="text-sm text-mist">Active Checks</p><p className="mt-2 text-3xl font-semibold text-chalk">12</p></div>
-            <div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5"><p className="text-sm text-mist">Last Run</p><p className="mt-2 text-3xl font-semibold text-chalk">2 hours ago</p></div>
-            <div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5"><p className="text-sm text-mist">Success Rate</p><p className="mt-2 text-3xl font-semibold text-mint">98.5%</p></div>
-            <div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5"><p className="text-sm text-mist">Next Scheduled</p><p className="mt-2 text-3xl font-semibold text-chalk">Today 6:00 AM</p></div>
+            {tiles.map((t) => (
+              <div key={t.label} className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5">
+                <p className="text-sm text-mist">{t.label}</p>
+                <p className={`mt-2 text-3xl font-semibold ${t.tone}`}>{t.value}</p>
+              </div>
+            ))}
           </div>
-          <div className="rounded-xl border border-line overflow-hidden"><table className="w-full"><thead><tr className="bg-surface-1 border-b border-line"><th className="px-4 py-3 text-left text-sm font-medium text-mist">Check</th><th className="px-4 py-3 text-center text-sm font-medium text-mist">Schedule</th><th className="px-4 py-3 text-center text-sm font-medium text-mist">Engines</th><th className="px-4 py-3 text-center text-sm font-medium text-mist">Prompts</th><th className="px-4 py-3 text-center text-sm font-medium text-mist">Status</th></tr></thead><tbody>
-                <tr className="border-b border-line/50 hover:bg-surface-1"><td className="px-4 py-3 font-medium text-chalk">Daily Visibility Scan</td><td className="px-4 py-3 text-center text-sm text-mist">Daily 6:00 AM</td><td className="px-4 py-3 text-center text-sm text-mist">4</td><td className="px-4 py-3 text-center font-mono text-chalk">150</td><td className="px-4 py-3 text-center"><span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[0.5rem] uppercase tracking-widest bg-mint/15 text-mint border-mint/30">Active</span></td></tr>
-                <tr className="border-b border-line/50 hover:bg-surface-1"><td className="px-4 py-3 font-medium text-chalk">Weekly Deep Audit</td><td className="px-4 py-3 text-center text-sm text-mist">Monday 9:00 AM</td><td className="px-4 py-3 text-center text-sm text-mist">4</td><td className="px-4 py-3 text-center font-mono text-chalk">50</td><td className="px-4 py-3 text-center"><span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[0.5rem] uppercase tracking-widest bg-mint/15 text-mint border-mint/30">Active</span></td></tr>
-                <tr className="border-b border-line/50 hover:bg-surface-1"><td className="px-4 py-3 font-medium text-chalk">Competitor Tracking</td><td className="px-4 py-3 text-center text-sm text-mist">Daily 3:00 AM</td><td className="px-4 py-3 text-center text-sm text-mist">4</td><td className="px-4 py-3 text-center font-mono text-chalk">8</td><td className="px-4 py-3 text-center"><span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[0.5rem] uppercase tracking-widest bg-mint/15 text-mint border-mint/30">Active</span></td></tr>
-                <tr className="border-b border-line/50 hover:bg-surface-1"><td className="px-4 py-3 font-medium text-chalk">Citation Health Check</td><td className="px-4 py-3 text-center text-sm text-mist">Weekly Friday 3 PM</td><td className="px-4 py-3 text-center text-sm text-mist">4</td><td className="px-4 py-3 text-center font-mono text-chalk">200</td><td className="px-4 py-3 text-center"><span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[0.5rem] uppercase tracking-widest bg-mist/15 text-mist border-mist/30">Paused</span></td></tr></tbody></table></div></div></Panel></div>
+
+          {recent.length === 0 ? (
+            <EmptyState
+              title="No runs recorded yet"
+              sub="Every scan this workspace runs is logged here, with its result and when it finished."
+            />
+          ) : (
+            <div className="rounded-xl border border-line overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-surface-1 border-b border-line">
+                    <th className="px-4 py-3 text-left text-sm font-medium text-mist">Run</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-mist">Result</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-mist">When</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recent.map((r, i) => (
+                    <tr key={i} className="border-b border-line/50 hover:bg-surface-1">
+                      <td className="px-4 py-3 font-medium text-chalk">{r.text}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[0.5rem] uppercase tracking-widest ${
+                            r.tone === "alert"
+                              ? "bg-coral/15 text-coral border-coral/30"
+                              : r.tone === "win"
+                                ? "bg-mint/15 text-mint border-mint/30"
+                                : "bg-mist/15 text-mist border-mist/30"
+                          }`}
+                        >
+                          {r.tone}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm text-mist">{r.time}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </Panel>
+    </div>
   );
 }

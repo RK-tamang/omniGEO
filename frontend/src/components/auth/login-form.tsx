@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import {
+  BUSINESS_CATEGORIES,
+  MARKETS,
+  isValidWebsite,
+  normalizeWebsite,
+} from "@/lib/business";
 
 type Mode = "signin" | "signup";
 
@@ -12,6 +18,10 @@ export function LoginForm({ next, initialMode = "signin" }: { next: string; init
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [brandName, setBrandName] = useState("");
+  const [category, setCategory] = useState<string>(BUSINESS_CATEGORIES[0].value);
+  const [website, setWebsite] = useState("");
+  const [market, setMarket] = useState<string>(MARKETS[0].value);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -25,12 +35,36 @@ export function LoginForm({ next, initialMode = "signin" }: { next: string; init
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (isSignup) {
+      if (!brandName.trim()) {
+        setError("Tell us your brand name.");
+        return;
+      }
+      if (!isValidWebsite(website)) {
+        setError("Enter your website, like example.com.");
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const res = await fetch(isSignup ? "/api/auth/register" : "/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(isSignup ? { name, email, password } : { email, password }),
+        body: JSON.stringify(
+          isSignup
+            ? {
+                name,
+                email,
+                password,
+                brandName: brandName.trim(),
+                category,
+                website: normalizeWebsite(website),
+                market,
+              }
+            : { email, password },
+        ),
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
@@ -60,8 +94,8 @@ export function LoginForm({ next, initialMode = "signin" }: { next: string; init
       </h1>
       <p className="mt-2 text-sm text-mist">
         {isSignup
-          ? "Unlock the full scan report and start tracking your prompts."
-          : "Open the demo workspace for Northwind Labs."}
+          ? "Tell us about the business and we set up the workspace around it."
+          : "Open the demo workspace for testing.com."}
       </p>
 
       <div
@@ -101,23 +135,108 @@ export function LoginForm({ next, initialMode = "signin" }: { next: string; init
         noValidate
       >
         {isSignup && (
-          <label className="block">
-            <span className="mb-1.5 block font-mono text-[0.6rem] uppercase tracking-widest text-mist-dim">Name</span>
-            <input
-              type="text"
-              autoComplete="name"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Aarav Mehta"
-              className="w-full rounded-xl border border-line bg-surface-1 px-4 py-2.5 text-sm text-chalk placeholder:text-mist-dim outline-none transition-colors focus:border-iris/60"
-            />
-          </label>
+          <>
+            <label className="block">
+              <span className="mb-1.5 block font-mono text-[0.6rem] uppercase tracking-widest text-mist-dim">
+                Your name
+              </span>
+              <input
+                id="name"
+                type="text"
+                autoComplete="name"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Aarav Mehta"
+                className="w-full rounded-xl border border-line bg-surface-1 px-4 py-2.5 text-sm text-chalk placeholder:text-mist-dim outline-none transition-colors focus:border-iris/60"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-1.5 block font-mono text-[0.6rem] uppercase tracking-widest text-mist-dim">
+                Brand name
+              </span>
+              <input
+                id="brandName"
+                type="text"
+                required
+                value={brandName}
+                onChange={(e) => setBrandName(e.target.value)}
+                placeholder="Northwind Labs"
+                className="w-full rounded-xl border border-line bg-surface-1 px-4 py-2.5 text-sm text-chalk placeholder:text-mist-dim outline-none transition-colors focus:border-iris/60"
+              />
+              <span className="mt-1.5 block text-xs text-mist-dim">
+                The brand the engines should start mentioning.
+              </span>
+            </label>
+
+            <label className="block">
+              <span className="mb-1.5 block font-mono text-[0.6rem] uppercase tracking-widest text-mist-dim">
+                Category
+              </span>
+              <select
+                id="category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full rounded-xl border border-line bg-surface-1 px-4 py-2.5 text-sm text-chalk outline-none transition-colors focus:border-iris/60"
+              >
+                {BUSINESS_CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              <span className="mt-1.5 block text-xs text-mist-dim">
+                Shapes which prompts and content angles we test.
+              </span>
+            </label>
+
+            <label className="block">
+              <span className="mb-1.5 block font-mono text-[0.6rem] uppercase tracking-widest text-mist-dim">
+                Website
+              </span>
+              <input
+                id="website"
+                type="text"
+                inputMode="url"
+                required
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                placeholder="yourdomain.com"
+                className="w-full rounded-xl border border-line bg-surface-1 px-4 py-2.5 text-sm text-chalk placeholder:text-mist-dim outline-none transition-colors focus:border-iris/60"
+              />
+              <span className="mt-1.5 block text-xs text-mist-dim">
+                The domain we track, audit and check for AI crawler access.
+              </span>
+            </label>
+
+            <label className="block">
+              <span className="mb-1.5 block font-mono text-[0.6rem] uppercase tracking-widest text-mist-dim">
+                Primary market
+              </span>
+              <select
+                id="market"
+                value={market}
+                onChange={(e) => setMarket(e.target.value)}
+                className="w-full rounded-xl border border-line bg-surface-1 px-4 py-2.5 text-sm text-chalk outline-none transition-colors focus:border-iris/60"
+              >
+                {MARKETS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              <span className="mt-1.5 block text-xs text-mist-dim">
+                Where your buyers are — sets the locale for every report.
+              </span>
+            </label>
+          </>
         )}
 
         <label className="block">
           <span className="mb-1.5 block font-mono text-[0.6rem] uppercase tracking-widest text-mist-dim">Email</span>
           <input
+            id="email"
             type="email"
             autoComplete="email"
             required
@@ -131,6 +250,7 @@ export function LoginForm({ next, initialMode = "signin" }: { next: string; init
         <label className="block">
           <span className="mb-1.5 block font-mono text-[0.6rem] uppercase tracking-widest text-mist-dim">Password</span>
           <input
+            id="password"
             type="password"
             autoComplete={isSignup ? "new-password" : "current-password"}
             required

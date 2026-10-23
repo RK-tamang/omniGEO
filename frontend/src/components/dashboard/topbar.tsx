@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import type { DashboardUser } from "@/components/dashboard/shell";
+import type { DashboardUser, DashboardWorkspace } from "@/components/dashboard/shell";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 const CRUMBS: Record<string, string> = {
@@ -19,7 +19,13 @@ const CRUMBS: Record<string, string> = {
   "/dashboard/settings": "settings",
 };
 
-export function DashboardTopbar({ user }: { user: DashboardUser }) {
+export function DashboardTopbar({
+  user,
+  workspace,
+}: {
+  user: DashboardUser;
+  workspace: DashboardWorkspace;
+}) {
   const pathname = usePathname();
   const crumb = CRUMBS[pathname] ?? "overview";
   const [open, setOpen] = useState(false);
@@ -62,7 +68,7 @@ export function DashboardTopbar({ user }: { user: DashboardUser }) {
 
       <div className="flex items-center gap-3">
         <span className="hidden rounded-full border border-iris/40 bg-iris/10 px-2.5 py-1 font-mono text-[0.55rem] uppercase tracking-[0.16em] text-chalk sm:inline">
-          Demo data
+          Live data
         </span>
 
         <ThemeToggle />
@@ -88,7 +94,7 @@ export function DashboardTopbar({ user }: { user: DashboardUser }) {
               <div className="border-b border-line px-3 py-2.5">
                 <p className="truncate text-sm text-chalk">{user.email}</p>
                 <p className="mt-0.5 font-mono text-[0.6rem] uppercase tracking-widest text-mist-dim">
-                  {user.plan} plan · Northwind Labs
+                  {user.plan} plan · {workspace.name}
                 </p>
               </div>
               <Link

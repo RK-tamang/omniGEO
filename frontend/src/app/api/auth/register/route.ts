@@ -4,11 +4,29 @@ import { createUser } from "@/server/db";
 import { backendEnabled, backendRegisterWithToken } from "@/server/backend-client";
 
 export async function POST(request: Request) {
-  let body: { name?: string; email?: string; password?: string; workspaceName?: string };
+  let body: {
+    name?: string;
+    email?: string;
+    password?: string;
+    brandName?: string;
+    category?: string;
+    website?: string;
+    market?: string;
+  };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid request." }, { status: 400 });
+  }
+
+  const missing = ["name", "email", "password", "brandName", "category", "website"].filter(
+    (k) => !body[k as keyof typeof body],
+  );
+  if (missing.length > 0) {
+    return NextResponse.json(
+      { ok: false, error: `Missing: ${missing.join(", ")}.` },
+      { status: 400 },
+    );
   }
 
   // 1. Prefer the backend, which owns users/workspaces going forward.
@@ -17,7 +35,10 @@ export async function POST(request: Request) {
       name: body.name ?? "",
       email: body.email ?? "",
       password: body.password ?? "",
-      workspaceName: body.workspaceName,
+      brandName: body.brandName ?? "",
+      category: body.category ?? "",
+      website: body.website ?? "",
+      market: body.market,
     });
 
     if (result.ok && result.data.token) {
@@ -51,6 +72,10 @@ export async function POST(request: Request) {
     name: body.name ?? "",
     email: body.email ?? "",
     password: body.password ?? "",
+    brandName: body.brandName ?? "",
+    category: body.category ?? "",
+    website: body.website ?? "",
+    market: body.market,
   });
 
   if (!result.ok) {

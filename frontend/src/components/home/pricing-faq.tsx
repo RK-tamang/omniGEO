@@ -27,7 +27,7 @@ export function PricingTeaser() {
             <Reveal key={p.name} delay={i * 90}>
               <div
                 className={`glass flex h-full flex-col rounded-2xl p-7 ${
-                  p.highlight ? "border-iris/40 shadow-[0_0_60px_-20px_rgba(139,92,246,0.5)]" : ""
+                  p.highlight ? "border-iris/40 shadow-[0_0_60px_-20px_rgba(62,124,176,0.5)]" : ""
                 }`}
               >
                 <div className="flex items-center justify-between">

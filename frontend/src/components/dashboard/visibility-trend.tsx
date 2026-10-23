@@ -2,23 +2,39 @@
 
 import { useMemo, useState } from "react";
 import { AreaChart } from "@/components/dashboard/charts";
-import { days, visibilitySeries } from "@/lib/dashboard-data";
+import { EmptyState } from "@/components/ui/empty-state";
+import type { Series } from "@/lib/dashboard-config";
 
 const RANGES = [
   { label: "7d", days: 7 },
   { label: "30d", days: 30 },
 ] as const;
 
-export function VisibilityTrend() {
+export function VisibilityTrend({
+  series: allSeries,
+  labels: allLabels,
+}: {
+  series: Series[];
+  labels: string[];
+}) {
   const [range, setRange] = useState<(typeof RANGES)[number]["days"]>(30);
 
   const { series, labels } = useMemo(() => {
-    const start = days.length - range;
+    const start = Math.max(0, allLabels.length - range);
     return {
-      series: visibilitySeries.map((s) => ({ ...s, data: s.data.slice(start) })),
-      labels: days.slice(start),
+      series: allSeries.map((s) => ({ ...s, data: s.data.slice(start) })),
+      labels: allLabels.slice(start),
     };
-  }, [range]);
+  }, [allSeries, allLabels, range]);
+
+  if (allSeries.length === 0 || allLabels.length === 0) {
+    return (
+      <EmptyState
+        title="No visibility history yet"
+        sub="Run a visibility scan and every run from here on is charted, per engine, so you can see the direction of travel."
+      />
+    );
+  }
 
   return (
     <div>

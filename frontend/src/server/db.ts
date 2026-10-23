@@ -5,6 +5,11 @@ import "server-only";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import {
+  DEFAULT_DASHBOARD_LAYOUT,
+  normalizeDashboardLayout,
+  type DashboardLayout,
+} from "@/lib/dashboard-layout";
 
 const DATA_DIR = path.join(process.cwd(), ".data");
 const DB_FILE = path.join(DATA_DIR, "db.json");
@@ -39,6 +44,10 @@ type AuthEvent = { at: string; email: string; type: "login" | "logout" | "failed
 
 export type Settings = {
   workspaceName: string;
+  /** The brand the engines should mention. */
+  brandName?: string;
+  /** What the business does — drives the prompt and content templates. */
+  category?: string;
   /**
    * Domains the workspace is allowed to scan / report on. The tools only ever
    * operate on entries in this list — nothing else is fetched or optimised.
@@ -52,6 +61,11 @@ export type Settings = {
   emailDigest: boolean;
   criticalAlerts: boolean;
   productUpdates: boolean;
+  /**
+   * Which dashboard blocks this workspace shows, and in what order.
+   * See `@/lib/dashboard-layout` for the registry and the presets.
+   */
+  dashboardLayout: DashboardLayout;
   // Billing fields
   plan?: string;
   billingInterval?: "monthly" | "yearly";
@@ -60,16 +74,21 @@ export type Settings = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  workspaceName: "Northwind Labs",
-  whitelist: ["northwindlabs.com", "shop.northwindlabs.com"],
+  workspaceName: "Testing.com",
+  /** The brand the engines should mention. Set at signup. */
+  brandName: "Testing.com",
+  /** What the business does. Set at signup. */
+  category: "",
+  whitelist: ["testing.com"],
   timezone: "Asia/Kolkata",
   locale: "en-IN",
-  competitors: "Competitor A, Competitor B, Competitor C",
+  competitors: "",
   runDay: "Monday",
   digest: "Weekly",
   emailDigest: true,
   criticalAlerts: true,
   productUpdates: false,
+  dashboardLayout: DEFAULT_DASHBOARD_LAYOUT,
 };
 
 /** Normalise a pasted domain or URL down to a bare hostname. */
@@ -90,7 +109,7 @@ export function isValidDomain(domain: string): boolean {
 
 /** The primary (first) whitelisted domain — what the dashboard reports on. */
 export function primaryDomain(settings: Settings): string {
-  return settings.whitelist[0] ?? "northwindlabs.com";
+  return settings.whitelist[0] ?? "testing.com";
 }
 
 type Db = {
@@ -111,10 +130,10 @@ function seed(): Db {
       {
         id: "usr_demo",
         email: DEMO_EMAIL,
-        name: "Aarav Mehta",
+        name: "Demo Explorer",
         plan: "Pro Growth",
         role: "Head of Growth",
-        workspace: "Northwind Labs",
+        workspace: "Testing.com",
         salt,
         passwordHash: hashPassword(DEMO_PASSWORD, salt),
       },
@@ -169,12 +188,20 @@ export function verifyCredentials(email: string, password: string): PublicUser |
 
 export type RegisterResult =
   | { ok: true; user: PublicUser }
-  | { ok: false; error: string; field?: "email" | "password" | "name" };
+  | { ok: false; error: string; field?: "email" | "password" | "name" | "brandName" | "category" | "website" };
 
 const NAME_MAX = 80;
 
 /** Create an account. New accounts start on the free Starter plan. */
-export function createUser(input: { name?: string; email: string; password: string }): RegisterResult {
+export function createUser(input: {
+  name?: string;
+  email: string;
+  password: string;
+  brandName?: string;
+  category?: string;
+  website?: string;
+  market?: string;
+}): RegisterResult {
   const email = input.email.trim().toLowerCase();
   const name = (input.name ?? "").trim().slice(0, NAME_MAX);
 
@@ -193,6 +220,22 @@ export function createUser(input: { name?: string; email: string; password: stri
     return { ok: false, error: "That email already has an account — sign in instead.", field: "email" };
   }
 
+  const brandName = (input.brandName ?? "").trim().slice(0, 100);
+  const category = (input.category ?? "").trim().slice(0, 60);
+  const website = (input.website ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .split("/")[0];
+
+  if (!brandName) {
+    return { ok: false, error: "Tell us your brand name.", field: "brandName" };
+  }
+  if (!website) {
+    return { ok: false, error: "Enter your website, like example.com.", field: "website" };
+  }
+
   const salt = randomBytes(16).toString("hex");
   const user: StoredUser = {
     id: `usr_${randomBytes(6).toString("hex")}`,
@@ -200,9 +243,20 @@ export function createUser(input: { name?: string; email: string; password: stri
     name,
     plan: "Starter",
     role: "Owner",
-    workspace: name.split(" ")[0] ? `${name.split(" ")[0]}'s workspace` : "My workspace",
+    workspace: brandName,
     salt,
     passwordHash: hashPassword(input.password, salt),
+  };
+
+  // The business profile becomes the workspace's defaults.
+  db.settings = {
+    ...(db.settings ?? {}),
+    ...DEFAULT_SETTINGS,
+    workspaceName: brandName,
+    brandName,
+    category,
+    whitelist: [website],
+    locale: input.market || "en-IN",
   };
 
   db.users.push(user);
@@ -263,6 +317,10 @@ export function getSettings(): Settings {
     merged.whitelist = legacy && isValidDomain(legacy) ? [legacy] : [...DEFAULT_SETTINGS.whitelist];
   }
 
+  // A stored layout may predate the current registry — normalise it on read so
+  // a removed block id can't break the dashboard.
+  merged.dashboardLayout = normalizeDashboardLayout(merged.dashboardLayout);
+
   return merged;
 }
 
@@ -293,6 +351,13 @@ export function saveSettings(input: Partial<Settings>): Settings {
       }
       // Never let the workspace end up with nothing to report on.
       if (cleaned.length > 0) target.whitelist = cleaned;
+      continue;
+    }
+
+    // The dashboard layout is an object: normalise it against the registry so
+    // an unknown block id can never be stored.
+    if (key === "dashboardLayout") {
+      target.dashboardLayout = normalizeDashboardLayout(value);
       continue;
     }
 

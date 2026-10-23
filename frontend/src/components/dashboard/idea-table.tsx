@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { intentColors, keywordIdeas, type KeywordIntent } from "@/lib/dashboard-data";
+import { EmptyState } from "@/components/ui/empty-state";
+import { intentColors, type IdeaRow, type KeywordIntent } from "@/lib/dashboard-config";
 
 type SortKey = "opportunity" | "volume" | "difficulty" | "rank";
 const INTENTS: KeywordIntent[] = ["Informational", "Commercial", "Transactional", "Local"];
@@ -29,14 +30,14 @@ function DiffBar({ value, tone }: { value: number; tone: "difficulty" | "opportu
   );
 }
 
-export function IdeaTable() {
+export function IdeaTable({ ideas }: { ideas: IdeaRow[] }) {
   const [sort, setSort] = useState<SortKey>("opportunity");
   const [intent, setIntent] = useState<KeywordIntent | "All">("All");
   const [query, setQuery] = useState("");
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return keywordIdeas
+    return ideas
       .filter((k) => (intent === "All" || k.intent === intent) && (!q || k.keyword.toLowerCase().includes(q)))
       .slice()
       .sort((a, b) => {
@@ -44,7 +45,16 @@ export function IdeaTable() {
         if (sort === "difficulty") return a.difficulty - b.difficulty;
         return b[sort] - a[sort];
       });
-  }, [sort, intent, query]);
+  }, [ideas, sort, intent, query]);
+
+  if (ideas.length === 0) {
+    return (
+      <EmptyState
+        title="No keyword ideas yet"
+        sub="Ideas come from a live provider pull. Run a keyword research query and the results land here."
+      />
+    );
+  }
 
   return (
     <div>
@@ -155,7 +165,7 @@ export function IdeaTable() {
       </div>
 
       <p className="mt-4 font-mono text-[0.62rem] text-mist-dim">
-        {rows.length} of {keywordIdeas.length} ideas · opportunity blends AI citation likelihood with difficulty
+        {rows.length} of {ideas.length} ideas · opportunity blends AI citation likelihood with difficulty
       </p>
     </div>
   );

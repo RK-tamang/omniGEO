@@ -179,7 +179,10 @@ export async function backendRegisterWithToken(input: {
   email: string;
   password: string;
   name: string;
-  workspaceName?: string;
+  brandName: string;
+  category: string;
+  website: string;
+  market?: string;
   plan?: string;
 }): Promise<BackendResult<{ user: BackendUser; token: string | null }>> {
   if (!backendEnabled()) {
@@ -227,6 +230,58 @@ export async function backendRegisterWithToken(input: {
       data: null,
       error: error?.name === "TimeoutError" ? "Backend request timed out" : error?.message || "Backend unreachable",
     };
+  }
+}
+
+/**
+ * Mint (or resume) a guest session on the backend and capture the issued
+ * auth_token cookie. Used by the public free-scan flow, which needs a tenant
+ * to run scans against before anyone has signed up.
+ */
+export async function backendGuestWithToken(body: { plan?: string } = {}) {
+  if (!backendEnabled()) {
+    return { ok: false, configured: false, status: 0, data: null, error: "Backend disabled" } as const;
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/auth/guest`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
+    });
+
+    const text = await response.text();
+    let data: any = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+
+    if (!response.ok) {
+      const message = (data && typeof data === "object" && (data.error || data.message)) || `Backend responded ${response.status}`;
+      return { ok: false, configured: true, status: response.status, data: null, error: String(message) } as const;
+    }
+
+    return {
+      ok: true,
+      configured: true,
+      status: response.status,
+      data: {
+        user: data?.user as BackendUser,
+        token: tokenFromSetCookie(response.headers.get("set-cookie")),
+      },
+    } as const;
+  } catch (error: any) {
+    return {
+      ok: false,
+      configured: true,
+      status: 0,
+      data: null,
+      error: error?.name === "TimeoutError" ? "Backend request timed out" : error?.message || "Backend unreachable",
+    } as const;
   }
 }
 

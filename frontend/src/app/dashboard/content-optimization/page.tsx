@@ -135,7 +135,7 @@ export default function ContentOptimizationPage() {
       </Panel>
 
       {/* Quick Actions */}
-      <Panel title="Quick Actions" sub="Start a content workflow">
+      <Panel title="Quick Actions" sub="Start a content workflow" level={2}>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <QuickAction
             title="Write New GEO Article"
@@ -165,7 +165,7 @@ export default function ContentOptimizationPage() {
       </Panel>
 
       {/* Content Pipeline */}
-      <Panel title="Content Pipeline" sub="Track optimization progress across all pages">
+      <Panel title="Content Pipeline" sub="Track optimization progress across all pages" level={2}>
         <div className="rounded-xl border border-line overflow-hidden">
           <table className="w-full">
             <thead>
@@ -212,7 +212,7 @@ export default function ContentOptimizationPage() {
       </Panel>
 
       {/* Quick Actions */}
-      <Panel title="Quick Actions" sub="Common content workflows">
+      <Panel title="Quick Actions" sub="Common content workflows" level={2}>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <QuickAction
             title="Write New Article"

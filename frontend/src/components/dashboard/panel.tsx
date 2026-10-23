@@ -2,19 +2,32 @@
 
 import type { ReactNode } from "react";
 
+/**
+ * The page/section heading for the dashboard.
+ *
+ * `level` controls the rendered heading element so a page has exactly one
+ * `<h1>`. Most dashboard pages use a single titled `Panel` as their page
+ * container, so `Panel` renders level 1 by default; a page that has more
+ * than one panel should pass `level={2}` to the ones below the first.
+ */
 export function DashboardHeader({
   title,
   sub,
   aside,
+  level = 1,
 }: {
   title: string;
   sub?: ReactNode;
   aside?: ReactNode;
+  level?: 1 | 2 | 3;
 }) {
+  const Heading = `h${level}` as "h1" | "h2" | "h3";
+  const size = level === 1 ? "text-2xl" : level === 2 ? "text-lg" : "text-base";
+
   return (
     <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-chalk">{title}</h1>
+        <Heading className={`${size} font-semibold tracking-tight text-chalk`}>{title}</Heading>
         {sub && <p className="mt-1 text-sm text-mist">{sub}</p>}
       </div>
       {aside && <div className="flex items-center gap-2">{aside}</div>}
@@ -42,11 +55,32 @@ export function StatusChip({ status }: { status: "Critical" | "Warning" | "Notic
   );
 }
 
-export function Panel({ children, className = "", title, sub, aside }: { children: ReactNode; className?: string; title?: string; sub?: ReactNode; aside?: ReactNode }) {
+/**
+ * A dashboard surface.
+ *
+ * A titled `Panel` is the page heading on most dashboard pages, so it renders
+ * an `<h1>` by default. Pass `level={2}` for secondary panels on a page that
+ * already has a heading, so the document keeps exactly one `<h1>`.
+ */
+export function Panel({
+  children,
+  className = "",
+  title,
+  sub,
+  aside,
+  level = 1,
+}: {
+  children: ReactNode;
+  className?: string;
+  title?: string;
+  sub?: ReactNode;
+  aside?: ReactNode;
+  level?: 1 | 2 | 3;
+}) {
   return (
     <section className={`bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-6 ${className}`}>
       {(title || sub || aside) && (
-        <DashboardHeader title={title || ""} sub={sub} aside={aside} />
+        <DashboardHeader title={title || ""} sub={sub} aside={aside} level={level} />
       )}
       {children}
     </section>

@@ -35,13 +35,13 @@ export function SiteFooter() {
         <div className="mt-14 flex flex-col items-start justify-between gap-4 border-t border-line pt-8 text-xs text-mist-dim sm:flex-row sm:items-center">
           <p>© {new Date().getFullYear()} OmniGEO. All rights reserved.</p>
           <div className="flex gap-6">
-            <Link href="/contact" className="hover:text-chalk">
+            <Link href="/privacy" className="hover:text-chalk">
               Privacy
             </Link>
-            <Link href="/contact" className="hover:text-chalk">
+            <Link href="/terms" className="hover:text-chalk">
               Terms
             </Link>
-            <Link href="/contact" className="hover:text-chalk">
+            <Link href="/data-processing" className="hover:text-chalk">
               Data Processing
             </Link>
           </div>

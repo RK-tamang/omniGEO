@@ -4,6 +4,9 @@ import { useState } from "react";
 import { Panel, ScoreBar, StatusChip } from "@/components/dashboard/panel";
 import { Button } from "@/components/ui/button";
 import { KpiCard, QuickAction, ToolCard, IssueRow } from "@/components/dashboard/shared-components";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useWorkspaceData } from "@/hooks/use-workspace-data";
+import { mergeAudit } from "@/lib/workspace-data";
 
 const AUDIT_TOOLS = [
   {
@@ -87,6 +90,13 @@ const AUDIT_TOOLS = [
 
 export default function GeoAuditPage() {
   const [activeCategory, setActiveCategory] = useState<"all" | "core" | "content" | "technical">("all");
+  const { data } = useWorkspaceData();
+  const audit = mergeAudit(data);
+  const categoriesPassing = audit.categories.length
+    ? Math.round(
+        (audit.categories.filter((c) => c.score >= 75).length / audit.categories.length) * 100,
+      )
+    : 0;
 
   const filteredTools = AUDIT_TOOLS.filter((t) =>
     activeCategory === "all" ? true : t.category === activeCategory
@@ -110,10 +120,10 @@ export default function GeoAuditPage() {
 
       {/* Score Overview */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Overall GEO Score" value="72" delta={5} unit="pts" />
-        <KpiCard label="Pages Crawled" value="41,230" delta={1200} />
-        <KpiCard label="Issues Found" value="23" delta={-5} invert />
-        <KpiCard label="Schema Coverage" value="87%" delta={3} unit="%" />
+        <KpiCard label="Overall GEO Score" value={audit.score} delta={0} unit="pts" />
+        <KpiCard label="Pages Crawled" value={audit.checks} delta={0} />
+        <KpiCard label="Issues Found" value={audit.issues.length} delta={0} invert />
+        <KpiCard label="Categories Passing" value={categoriesPassing} delta={0} unit="%" />
       </div>
 
       {/* Category Filter */}
@@ -156,7 +166,7 @@ export default function GeoAuditPage() {
       </Panel>
 
       {/* Quick Actions */}
-      <Panel title="Quick Actions" sub="Common audit workflows">
+      <Panel title="Quick Actions" sub="Common audit workflows" level={2}>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <QuickAction
             title="Full GEO Audit"
@@ -186,37 +196,26 @@ export default function GeoAuditPage() {
       </Panel>
 
       {/* Issue Summary */}
-      <Panel title="Top Issues to Fix" sub="Prioritized by impact on AI visibility">
-        <div className="space-y-3">
-          <IssueRow
-            severity="Critical"
-            title="GPTBot blocked by robots.txt"
-            description="/resources/* disallows all AI crawlers — 41 pages uncrawlable"
-            count="41 pages"
-            href="/dashboard/robots"
+      <Panel title="Top Issues to Fix" sub="Prioritized by impact on AI visibility" level={2}>
+        {audit.issues.length === 0 ? (
+          <EmptyState
+            title="No issues recorded"
+            sub="Run a full crawl and every weakness it finds is listed here with the number of pages it affects."
           />
-          <IssueRow
-            severity="Warning"
-            title="Missing FAQPage schema"
-            description="12 high-traffic pages lack FAQ structured data"
-            count="12 pages"
-            href="/dashboard/schema"
-          />
-          <IssueRow
-            severity="Warning"
-            title="Thin content on product pages"
-            description="8 product pages under 300 words — unlikely to be cited"
-            count="8 pages"
-            href="/dashboard/readability"
-          />
-          <IssueRow
-            severity="Notice"
-            title="Internal linking gaps"
-            description="23 orphan pages with no internal links from pillar content"
-            count="23 pages"
-            href="/dashboard/internal-links"
-          />
-        </div>
+        ) : (
+          <div className="space-y-3">
+            {audit.issues.slice(0, 6).map((issue) => (
+              <IssueRow
+                key={issue.title}
+                severity={issue.severity}
+                title={issue.title}
+                description={issue.detail}
+                count={`${issue.pages} page${issue.pages === 1 ? "" : "s"}`}
+                href="/dashboard/audit"
+              />
+            ))}
+          </div>
+        )}
       </Panel>
     </div>
   );

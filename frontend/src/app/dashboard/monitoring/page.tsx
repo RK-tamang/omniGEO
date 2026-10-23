@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Panel, ScoreBar, StatusChip } from "@/components/dashboard/panel";
 import { Button } from "@/components/ui/button";
 import { KpiCard, QuickAction, MonitoringToolCard, AlertItem, ReportRow } from "@/components/dashboard/shared-components";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useWorkspaceData } from "@/hooks/use-workspace-data";
 
 const MONITORING_TOOLS = [
   {
@@ -80,6 +82,31 @@ const MONITORING_TOOLS = [
 
 export default function MonitoringPage() {
   const [activeCategory, setActiveCategory] = useState<"all" | "monitor" | "alert" | "report" | "export" | "integration">("all");
+  const { data } = useWorkspaceData();
+
+  const alerts = (data?.alerts ?? []).map((a) => ({
+    id: a.id,
+    type: a.type,
+    severity: (["Critical", "Warning", "Notice"] as const).includes(a.severity as never)
+      ? (a.severity as "Critical" | "Warning" | "Notice")
+      : ("Notice" as const),
+    title: a.title,
+    description: a.description,
+    time: a.createdAt
+      ? new Date(a.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+      : "recently",
+  }));
+
+  const reports = (data?.reports ?? []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    type: r.type,
+    format: r.format,
+    status: r.status,
+    when: r.createdAt
+      ? new Date(r.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+      : "recently",
+  }));
 
   const filteredTools = MONITORING_TOOLS.filter((t) =>
     activeCategory === "all" ? true : t.category === activeCategory
@@ -103,10 +130,10 @@ export default function MonitoringPage() {
 
       {/* Alert Status Overview */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Active Alerts" value="3" delta={1} invert unit="unread" />
-        <KpiCard label="Scheduled Checks" value="12" delta={2} unit="daily" />
-        <KpiCard label="Reports This Month" value="4" delta={1} />
-        <KpiCard label="Exports Generated" value="23" delta={5} />
+        <KpiCard label="Active Alerts" value={alerts.length} delta={0} invert unit="unread" />
+        <KpiCard label="Scheduled Checks" value={data?.scans?.length ?? 0} delta={0} unit="runs" />
+        <KpiCard label="Reports Generated" value={reports.length} delta={0} />
+        <KpiCard label="Crawls Recorded" value={data?.crawls?.length ?? 0} delta={0} />
       </div>
 
       {/* Category Filter */}
@@ -136,87 +163,56 @@ export default function MonitoringPage() {
       </Panel>
 
       {/* Alert Center */}
-      <Panel title="Alert Center" sub="Recent alerts requiring attention">
-        <div className="space-y-3">
-          <AlertItem
-            type="citation-loss"
-            severity="Critical"
-            title="Citation Lost: 'Best CRM 2024'"
-            description="Competitor 'HubSpot' replaced your citation in ChatGPT & Perplexity"
-            time="5 min ago"
-            action="Investigate"
-            href="/dashboard/citations"
+      <Panel title="Alert Center" sub="Recent alerts requiring attention" level={2}>
+        {alerts.length === 0 ? (
+          <EmptyState
+            title="No alerts raised"
+            sub="Alerts fire when a citation is lost, a competitor appears or your visibility drops. Every alert this workspace has raised is listed here."
           />
-          <AlertItem
-            type="new-competitor"
-            severity="Warning"
-            title="New Competitor Detected"
-            description="'Salesforce' now appearing for 'enterprise CRM software' prompts"
-            time="2 hours ago"
-            action="Analyze"
-            href="/dashboard/competitors"
-          />
-          <AlertItem
-            type="mention-drop"
-            severity="Warning"
-            title="Visibility Drop Alert"
-            description="AI Visibility Score fell 12 pts for 'CRM pricing' prompt cluster"
-            time="4 hours ago"
-            action="View Details"
-            href="/dashboard/visibility"
-          />
-          <AlertItem
-            type="site-change"
-            severity="Notice"
-            title="Content Change Detected"
-            description="3 pages modified on docs.northwind.io — re-crawl recommended"
-            time="6 hours ago"
-            action="Re-crawl"
-            href="/dashboard/crawler"
-          />
-        </div>
+        ) : (
+          <div className="space-y-3">
+            {alerts.map((a) => (
+              <AlertItem
+                key={a.id}
+                type={a.type}
+                severity={a.severity}
+                title={a.title}
+                description={a.description}
+                time={a.time}
+                action="View"
+                href="/dashboard/monitoring"
+              />
+            ))}
+          </div>
+        )}
       </Panel>
 
       {/* Upcoming Reports */}
-      <Panel title="Upcoming Reports" sub="Scheduled automated reports">
-        <div className="space-y-3">
-          <ReportRow
-            name="Weekly GEO Performance"
-            frequency="Every Monday 9 AM"
-            nextRun="Tomorrow 9:00 AM"
-            format="PDF + CSV"
-            status="Active"
-            recipients="team@northwind.io"
+      <Panel title="Upcoming Reports" sub="Scheduled automated reports" level={2}>
+        {reports.length === 0 ? (
+          <EmptyState
+            title="No reports scheduled"
+            sub="Reports are generated on the cadence you set in Settings. Each generated report is listed here with its format and status."
           />
-          <ReportRow
-            name="Monthly Client Report"
-            frequency="1st of month"
-            nextRun="Nov 1, 9:00 AM"
-            format="PDF (White-label)"
-            status="Active"
-            recipients="client@acme.com, team@northwind.io"
-          />
-          <ReportRow
-            name="Competitor Movement Alert"
-            frequency="Daily 6 AM"
-            nextRun="Today 6:00 AM"
-            format="Slack + Email"
-            status="Active"
-            recipients="#geo-alerts, team@northwind.io"
-          />
-          <ReportRow
-            name="Citation Health Check"
-            frequency="Weekly Friday"
-            nextRun="Friday 3:00 PM"
-            format="CSV"
-            status="Paused"
-            recipients="team@northwind.io"
-          />
-        </div>
+        ) : (
+          <div className="space-y-3">
+            {reports.map((r) => (
+              <ReportRow
+                key={r.id}
+                name={r.name}
+                frequency={r.type}
+                nextRun={r.when}
+                format={r.format}
+                status={r.status === "paused" ? "Paused" : "Active"}
+                recipients="—"
+              />
+            ))}
+          </div>
+        )}
       </Panel>
 
       {/* Quick Actions */}
-      <Panel title="Quick Actions" sub="Common monitoring workflows">
+      <Panel title="Quick Actions" sub="Common monitoring workflows" level={2}>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <QuickAction
             title="Run Check Now"

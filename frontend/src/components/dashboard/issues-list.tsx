@@ -2,15 +2,25 @@
 
 import { useState } from "react";
 import { StatusChip } from "@/components/dashboard/panel";
-import { audit } from "@/lib/dashboard-data";
+import { EmptyState } from "@/components/ui/empty-state";
+import type { AuditIssue } from "@/lib/workspace-data";
 
 const SEVERITIES = ["All", "Critical", "Warning", "Notice"] as const;
 
-export function IssuesList() {
+export function IssuesList({ issues: source }: { issues: AuditIssue[] }) {
   const [severity, setSeverity] = useState<(typeof SEVERITIES)[number]>("All");
-  const [expanded, setExpanded] = useState<string | null>(audit.issues[0]?.title ?? null);
+  const [expanded, setExpanded] = useState<string | null>(source[0]?.title ?? null);
 
-  const issues = audit.issues.filter((i) => severity === "All" || i.severity === severity);
+  const issues = source.filter((i) => severity === "All" || i.severity === severity);
+
+  if (source.length === 0) {
+    return (
+      <EmptyState
+        title="No open issues"
+        sub="Run a site audit and every weakness it finds will be listed here with the fix for each."
+      />
+    );
+  }
 
   return (
     <div>
@@ -27,7 +37,7 @@ export function IssuesList() {
           >
             {s}
             <span className="ml-1.5 font-mono text-[0.6rem] text-mist-dim">
-              {s === "All" ? audit.issues.length : audit.issues.filter((i) => i.severity === s).length}
+              {s === "All" ? source.length : source.filter((i) => i.severity === s).length}
             </span>
           </button>
         ))}

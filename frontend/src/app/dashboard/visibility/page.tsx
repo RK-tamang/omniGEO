@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import type { JSX } from "react";
-import { Panel, ScoreBar, StatusChip } from "@/components/dashboard/panel";
+import { DashboardHeader, Panel, ScoreBar, StatusChip } from "@/components/dashboard/panel";
 import { Button } from "@/components/ui/button";
+import { useWorkspaceData } from "@/hooks/use-workspace-data";
+import { visibilityPoints } from "@/lib/workspace-data";
 
 const VISIBILITY_TOOLS = [
   {
@@ -80,33 +82,40 @@ const VISIBILITY_TOOLS = [
 
 export default function VisibilityPage() {
   const [activeTab, setActiveTab] = useState<"overview" | "tools" | "settings">("overview");
+  const { data } = useWorkspaceData();
+
+  const points = visibilityPoints(data);
+  const visibilityScore = points.length ? points[points.length - 1].score : 0;
+  const promptCount = data?.prompts?.length ?? 0;
+  const citationCount = data?.citations?.length ?? 0;
+  const competitorCount = data?.competitors?.length ?? 0;
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-chalk">AI Search Visibility</h1>
-          <p className="mt-1 text-sm text-mist">Unified visibility suite — track, discover, and optimize AI presence</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button variant="secondary">Export Report</Button>
-          <Button onClick={() => window.open("/dashboard/prompt-research", "_blank")}>
-            Run Prompt Research
-          </Button>
-        </div>
-      </div>
+      <DashboardHeader
+        title="AI Search Visibility"
+        sub="Unified visibility suite — track, discover, and optimize AI presence"
+        aside={
+          <>
+            <Button variant="secondary">Export Report</Button>
+            <Button onClick={() => window.open("/dashboard/prompt-research", "_blank")}>
+              Run Prompt Research
+            </Button>
+          </>
+        }
+      />
 
       {/* Overview KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Visibility Score" value="68" delta={8} unit="pts" />
-        <KpiCard label="Tracked Prompts" value="42" delta={12} />
-        <KpiCard label="Citations This Week" value="23" delta={5} />
-        <KpiCard label="Competitors Tracked" value="8" delta={2} />
+        <KpiCard label="Visibility Score" value={visibilityScore} delta={0} unit="pts" />
+        <KpiCard label="Tracked Prompts" value={promptCount} delta={0} />
+        <KpiCard label="Citations Recorded" value={citationCount} delta={0} />
+        <KpiCard label="Competitors Tracked" value={competitorCount} delta={0} />
       </div>
 
       {/* Tool Grid */}
-      <Panel title="Visibility Tools" sub="All tools in one unified interface — click to open">
+      <Panel title="Visibility Tools" sub="All tools in one unified interface — click to open" level={2}>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {VISIBILITY_TOOLS.map((tool) => (
             <ToolCard key={tool.id} tool={tool} />
@@ -115,7 +124,7 @@ export default function VisibilityPage() {
       </Panel>
 
       {/* Quick Actions */}
-      <Panel title="Quick Actions" sub="Common visibility workflows">
+      <Panel title="Quick Actions" sub="Common visibility workflows" level={2}>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <QuickAction
             title="Discover New Prompts"
@@ -145,7 +154,7 @@ export default function VisibilityPage() {
       </Panel>
 
       {/* Visibility Trend */}
-      <Panel title="Visibility Trend (30 days)" sub="AI Visibility Score across all tracked prompts">
+      <Panel title="Visibility Trend (30 days)" sub="AI Visibility Score across all tracked prompts" level={2}>
         <div className="h-64 flex items-end justify-between gap-2 px-2 pb-2">
           {Array.from({ length: 30 }).map((_, i) => (
             <div

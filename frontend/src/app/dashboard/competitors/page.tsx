@@ -1,9 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Panel, ScoreBar, StatusChip } from "@/components/dashboard/panel";
+import { Panel, ScoreBar } from "@/components/dashboard/panel";
 import { Button } from "@/components/ui/button";
-import { KpiCard, QuickAction, CompetitorToolCard } from "@/components/dashboard/shared-components";
+import { QuickAction, CompetitorToolCard } from "@/components/dashboard/shared-components";
+import { MarketShareChart } from "@/components/dashboard/market-share-chart";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useWorkspaceData } from "@/hooks/use-workspace-data";
+import { mergeCompetitors, mergePrompts } from "@/lib/workspace-data";
 
 const COMPETITOR_TOOLS = [
   {
@@ -58,6 +62,20 @@ const COMPETITOR_TOOLS = [
 
 export default function CompetitorsPage() {
   const [view, setView] = useState<"grid" | "compare">("grid");
+  const { data } = useWorkspaceData();
+  const competitors = mergeCompetitors(data);
+  const prompts = mergePrompts(data);
+
+  const own = {
+    visibility: prompts.length
+      ? Math.round(
+          (prompts.filter((p) => Object.values(p.engines).some((s) => s !== "missing")).length / prompts.length) * 100,
+        )
+      : 0,
+    citations: data?.citations?.length ?? 0,
+    prompts: prompts.filter((p) => Object.values(p.engines).some((s) => s === "cited")).length,
+    citationsList: [...new Set((data?.citations ?? []).map((c) => c.domain))].slice(0, 3).join(", "),
+  };
 
   return (
     <div className="space-y-6">
@@ -76,31 +94,8 @@ export default function CompetitorsPage() {
       </div>
 
       {/* Market Share Overview */}
-      <Panel title="Market Share — AI Mentions" sub="Your brand vs. top 5 competitors across all tracked prompts">
-        <div className="h-64 flex items-end justify-between gap-3 px-2 pb-2">
-          {[
-            { label: "You", value: 68, color: "bg-iris" },
-            { label: "Competitor A", value: 45, color: "bg-aqua" },
-            { label: "Competitor B", value: 38, color: "bg-gold" },
-            { label: "Competitor C", value: 32, color: "bg-coral" },
-            { label: "Competitor D", value: 28, color: "bg-mint" },
-            { label: "Competitor E", value: 22, color: "bg-mist" },
-          ].map((item, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1">
-              <div
-                className={`flex-1 w-full rounded-t transition-colors ${item.color}`}
-                style={{ height: `${item.value}%` }}
-                title={`${item.label}: ${item.value}%`}
-              />
-              <span className="text-xs text-mist-dim text-center w-20">{item.label}</span>
-              <span className="font-mono text-sm text-chalk">{item.value}%</span>
-            </div>
-          ))}
-        </div>
-        <div className="flex items-center justify-between text-sm text-mist mt-4">
-          <span>Market share across 150 tracked prompts</span>
-          <span className="text-chalk font-medium">Your share: 68%</span>
-        </div>
+      <Panel title="Market Share — AI Mentions" sub="Your brand vs. every competitor this workspace tracks">
+        <MarketShareChart />
       </Panel>
 
       {/* Quick Actions */}
@@ -113,7 +108,7 @@ export default function CompetitorsPage() {
       </div>
 
       {/* Tool Grid */}
-      <Panel title="Competitor Tools" sub="8 tools to discover, analyze, and outrank competitors">
+      <Panel title="Competitor Tools" sub="8 tools to discover, analyze, and outrank competitors" level={2}>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {COMPETITOR_TOOLS.map((tool) => (
             <CompetitorToolCard key={tool.id} tool={tool} />
@@ -122,56 +117,57 @@ export default function CompetitorsPage() {
       </Panel>
 
       {/* Top Competitors Table */}
-      <Panel title="Tracked Competitors" sub="Current visibility snapshot">
-        <div className="rounded-xl border border-line overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-surface/60 border-b border-line">
-                <th className="px-4 py-3 text-left text-sm font-medium text-mist">Competitor</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-mist">Visibility</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-mist">Citations</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-mist">Prompts Won</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-mist">Trend</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-mist">Top Citations</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                { name: "Your Brand", visibility: 68, citations: 127, prompts: 42, trend: "+8%", citationsList: "northwindlabs.com, docs.northwind.io, blog.northwind.io" },
-                { name: "Competitor A", visibility: 45, citations: 89, prompts: 28, trend: "+3%", citationsList: "competitor-a.com, blog.competitor-a.com" },
-                { name: "Competitor B", visibility: 38, citations: 72, prompts: 22, trend: "-2%", citationsList: "competitor-b.io, help.competitor-b.io" },
-                { name: "Competitor C", visibility: 32, citations: 58, prompts: 18, trend: "+5%", citationsList: "competitor-c.com, academy.competitor-c.com" },
-                { name: "Competitor D", visibility: 28, citations: 45, prompts: 12, trend: "+1%", citationsList: "competitor-d.com, blog.competitor-d.com" },
-              ].map((comp, i) => (
-                <tr key={i} className="border-b border-line/50 hover:bg-surface/40">
+      <Panel title="Tracked Competitors" sub="Current visibility snapshot" level={2}>
+        {competitors.length === 0 ? (
+          <EmptyState
+            title="No competitors tracked yet"
+            sub="Add the brands buyers compare you against and their visibility, citations and prompt wins appear here."
+          />
+        ) : (
+          <div className="rounded-xl border border-line overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-surface/60 border-b border-line">
+                  <th className="px-4 py-3 text-left text-sm font-medium text-mist">Competitor</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-mist">Visibility</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-mist">Citations</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-mist">Prompts Won</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-mist">Last checked</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-mist">Domain</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-line/50 hover:bg-surface/40">
                   <td className="px-4 py-3 font-medium text-chalk">
-                    <>
-                      {comp.name}
-                      {i === 0 && (
-                        <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-mint/40 bg-mint/10 px-2 py-0.5 font-mono text-[0.5rem] uppercase tracking-widest text-mint">
-                          You
-                        </span>
-                      )}
-                    </>
-                  </td>
-                  <td className="px-4 py-3 text-center"><ScoreBar score={comp.visibility} /></td>
-                  <td className="px-4 py-3 text-center font-mono text-chalk">{comp.citations}</td>
-                  <td className="px-4 py-3 text-center font-mono text-chalk">{comp.prompts}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={comp.trend.startsWith("+") ? "text-mint" : "text-coral"} font-mono text-sm>
-                      {comp.trend}
+                    {data?.workspace?.name ?? "Your brand"}
+                    <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-mint/40 bg-mint/10 px-2 py-0.5 font-mono text-[0.5rem] uppercase tracking-widest text-mint">
+                      You
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center text-sm text-mist max-w-xs truncate">{comp.citationsList}</td>
+                  <td className="px-4 py-3 text-center"><ScoreBar score={own.visibility} /></td>
+                  <td className="px-4 py-3 text-center font-mono text-chalk">{own.citations}</td>
+                  <td className="px-4 py-3 text-center font-mono text-chalk">{own.prompts}</td>
+                  <td className="px-4 py-3 text-center text-sm text-mist">—</td>
+                  <td className="px-4 py-3 text-center text-sm text-mist max-w-xs truncate">{own.citationsList || "—"}</td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                {competitors.map((comp) => (
+                  <tr key={comp.id} className="border-b border-line/50 hover:bg-surface/40">
+                    <td className="px-4 py-3 font-medium text-chalk">{comp.name}</td>
+                    <td className="px-4 py-3 text-center"><ScoreBar score={comp.visibility} /></td>
+                    <td className="px-4 py-3 text-center font-mono text-chalk">{comp.citations}</td>
+                    <td className="px-4 py-3 text-center font-mono text-chalk">{comp.prompts}</td>
+                    <td className="px-4 py-3 text-center text-sm text-mist">{comp.lastChecked}</td>
+                    <td className="px-4 py-3 text-center text-sm text-mist max-w-xs truncate">{comp.domain || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Panel>
 
       {/* Quick Actions */}
-      <Panel title="Quick Actions" sub="Common competitor workflows">
+      <Panel title="Quick Actions" sub="Common competitor workflows" level={2}>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <QuickAction
             title="Compare Side-by-Side"

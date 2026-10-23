@@ -1,7 +1,25 @@
+"use client";
+
 import { Panel } from "@/components/dashboard/panel";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useWorkspaceData } from "@/hooks/use-workspace-data";
+import { mergeContentItems } from "@/lib/workspace-data";
 
 export default function SourceReadinessPage() {
+  const { data } = useWorkspaceData();
+  const items = mergeContentItems(data);
+
+  const ready = items.filter((c) => c.score >= 80).length;
+  const withSources = items.filter((c) => c.target).length;
+
+  const tiles = [
+    { label: "Pieces Analyzed", value: `${items.length}`, tone: "text-chalk" },
+    { label: "Citation-Ready", value: items.length ? `${Math.round((ready / items.length) * 100)}%` : "—", tone: "text-chalk" },
+    { label: "With a target prompt", value: `${withSources}`, tone: "text-coral" },
+    { label: "Avg Sources/Claim", value: withSources ? (items.reduce((s, c) => s + (c.target ? 1 : 0), 0) / items.length).toFixed(1) : "—", tone: "text-chalk" },
+  ];
+
   return (
     <div className="space-y-6">
       <Panel title="Source & Citation Readiness" sub="Evaluates whether important claims are clear, verifiable, and citation-ready">
@@ -10,64 +28,51 @@ export default function SourceReadinessPage() {
             <Button>Check Readiness</Button>
             <Button variant="secondary">Generate Report</Button>
           </div>
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5">
-              <p className="text-sm text-mist">Claims Analyzed</p>
-              <p className="mt-2 text-3xl font-semibold text-chalk">1,247</p>
-              <p className="mt-1 text-xs text-mint font-mono">+127 this week</p>
-            </div>
-            <div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5">
-              <p className="text-sm text-mist">Citation-Ready</p>
-              <p className="mt-2 text-3xl font-semibold text-chalk">68%</p>
-              <p className="mt-1 text-xs text-mint font-mono">+5% vs last week</p>
-            </div>
-            <div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5">
-              <p className="text-sm text-mist">Unverified Claims</p>
-              <p className="mt-2 text-3xl font-semibold text-coral">398</p>
-              <p className="mt-1 text-xs text-coral font-mono">+23 this week</p>
-            </div>
-            <div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5">
-              <p className="text-sm text-mist">Avg Sources/Claim</p>
-              <p className="mt-2 text-3xl font-semibold text-chalk">2.3</p>
-              <p className="mt-1 text-xs text-mint font-mono">+0.2 vs last week</p>
-            </div>
+            {tiles.map((t) => (
+              <div key={t.label} className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5">
+                <p className="text-sm text-mist">{t.label}</p>
+                <p className={`mt-2 text-3xl font-semibold ${t.tone}`}>{t.value}</p>
+              </div>
+            ))}
           </div>
-          <div className="rounded-xl border border-line overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-surface-1 border-b border-line">
-                  <th className="px-4 py-3 text-left text-sm font-medium text-mist">Page</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-mist">Claims</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-mist">Verified</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-mist">Unverified</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-mist">Readiness</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-line/50 hover:bg-surface-1">
-                  <td className="px-4 py-3 font-medium text-chalk truncate max-w-xs">Best CRM for Small Business 2024</td>
-                  <td className="px-4 py-3 text-center font-mono text-chalk">12</td>
-                  <td className="px-4 py-3 text-center"><span className="text-mint text-sm font-medium">9</span></td>
-                  <td className="px-4 py-3 text-center"><span className="text-gold text-sm font-medium">3</span></td>
-                  <td className="px-4 py-3 text-center"><span className="text-gold text-sm font-medium">75%</span></td>
-                </tr>
-                <tr className="border-b border-line/50 hover:bg-surface-1">
-                  <td className="px-4 py-3 font-medium text-chalk truncate max-w-xs">AI Search Visibility Guide</td>
-                  <td className="px-4 py-3 text-center font-mono text-chalk">8</td>
-                  <td className="px-4 py-3 text-center"><span className="text-gold text-sm font-medium">5</span></td>
-                  <td className="px-4 py-3 text-center"><span className="text-coral text-sm font-medium">3</span></td>
-                  <td className="px-4 py-3 text-center"><span className="text-gold text-sm font-medium">62%</span></td>
-                </tr>
-                <tr className="border-b border-line/50 hover:bg-surface-1">
-                  <td className="px-4 py-3 font-medium text-chalk truncate max-w-xs">Schema Markup for Local SEO</td>
-                  <td className="px-4 py-3 text-center font-mono text-chalk">5</td>
-                  <td className="px-4 py-3 text-center"><span className="text-coral text-sm font-medium">1</span></td>
-                  <td className="px-4 py-3 text-center"><span className="text-coral text-sm font-medium">4</span></td>
-                  <td className="px-4 py-3 text-center"><span className="text-coral text-sm font-medium">20%</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+
+          {items.length === 0 ? (
+            <EmptyState
+              title="Nothing checked yet"
+              sub="Readiness is measured on the content in this workspace. Add a piece and each claim is checked for a source and a target prompt."
+            />
+          ) : (
+            <div className="rounded-xl border border-line overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-surface-1 border-b border-line">
+                    <th className="px-4 py-3 text-left text-sm font-medium text-mist">Piece</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-mist">Target prompt</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-mist">Readiness</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((c) => (
+                    <tr key={c.title} className="border-b border-line/50 hover:bg-surface-1">
+                      <td className="px-4 py-3 font-medium text-chalk truncate max-w-xs">{c.title}</td>
+                      <td className="px-4 py-3 text-center text-sm text-mist">{c.target || "—"}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span
+                          className={`text-sm font-medium ${
+                            c.score >= 80 ? "text-mint" : c.score >= 60 ? "text-gold" : "text-coral"
+                          }`}
+                        >
+                          {c.score}%
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </Panel>
     </div>

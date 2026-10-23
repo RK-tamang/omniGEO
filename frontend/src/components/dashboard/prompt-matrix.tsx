@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { competitorBrands, competitorPrompts } from "@/lib/dashboard-data";
+import { EmptyState } from "@/components/ui/empty-state";
+import { mergeCompetitorMatrix } from "@/lib/workspace-data";
+import type { WorkspaceData } from "@/hooks/use-workspace-data";
 
 const cellStyles = {
   wins: "border-mint/40 bg-mint/10 text-mint",
@@ -11,11 +13,24 @@ const cellStyles = {
 
 const cellLabel = { wins: "1st", second: "top", absent: "—" } as const;
 
-export function PromptMatrix() {
+export function PromptMatrix({ data }: { data?: WorkspaceData | null }) {
   const [gapsOnly, setGapsOnly] = useState(false);
 
+  // "1st" = the brand is cited, "top" = mentioned, "—" = absent. Every cell is
+  // read from the workspace's own prompt and competitor rows.
+  const { brands, rows: matrix } = mergeCompetitorMatrix(data ?? null);
+
   // "gap" = a prompt where the winner isn't you
-  const rows = competitorPrompts.filter((p) => !gapsOnly || p.statuses[0] !== "wins");
+  const rows = matrix.filter((p) => !gapsOnly || p.statuses[0] !== "wins");
+
+  if (brands.length === 0 || matrix.length === 0) {
+    return (
+      <EmptyState
+        title="No prompt results yet"
+        sub="Track a prompt and each engine's answer is recorded here, alongside every rival you are compared against."
+      />
+    );
+  }
 
   return (
     <div>
@@ -52,10 +67,9 @@ export function PromptMatrix() {
           <thead>
             <tr className="border-b border-line-strong font-mono text-[0.58rem] uppercase tracking-widest text-mist-dim">
               <th className="pb-3 pr-4 font-normal">Prompt</th>
-              {competitorBrands.map((b) => (
+              {brands.map((b) => (
                 <th key={b.name} className={`pb-3 pr-4 font-normal ${b.you ? "text-iris" : ""}`}>
-                  {b.name.replace(" (you)", "")}
-                  {b.you && " (you)"}
+                  {b.you ? `${b.name} (you)` : b.name}
                 </th>
               ))}
             </tr>
@@ -77,7 +91,7 @@ export function PromptMatrix() {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-sm text-mist-dim">
+                <td colSpan={brands.length + 1} className="py-8 text-center text-sm text-mist-dim">
                   You win every tracked prompt. Add tougher ones.
                 </td>
               </tr>

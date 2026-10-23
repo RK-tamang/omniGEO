@@ -11,6 +11,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: p === "" ? 1 : p === "/scan" ? 0.9 : 0.7,
   }));
 
+  const legalPages = ["/privacy", "/terms", "/data-processing"].map((p) => ({
+    url: `${site.url}${p}`,
+    lastModified: new Date(),
+    changeFrequency: "yearly" as const,
+    priority: 0.3,
+  }));
+
   const featurePages = features.map((f) => ({
     url: `${site.url}/features/${f.slug}`,
     lastModified: new Date(),
@@ -25,5 +32,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.6,
   }));
 
-  return [...staticPages, ...featurePages, ...blogPages];
+  return [...staticPages, ...featurePages, ...blogPages, ...legalPages];
 }

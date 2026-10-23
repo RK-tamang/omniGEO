@@ -2,10 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { categoryLabel } from "@/lib/business";
 import { useEffect, useState } from "react";
 import { DashboardTopbar } from "@/components/dashboard/topbar";
 
 export type DashboardUser = { name: string; email: string; plan: string };
+export type DashboardWorkspace = {
+  name: string;
+  plan: string;
+  prompts: number;
+  /** The domain the workspace tracks. */
+  domain?: string;
+  /** What the business does. */
+  category?: string;
+};
 
 const nav = [
   {
@@ -91,6 +101,7 @@ const nav = [
     label: "Demo & Comparison",
     items: [
       { label: "Plan Comparison Demo", href: "/dashboard/demo", icon: "columns" },
+      { label: "Sub-dashboard Demos", href: "/dashboard/demo/dashboards", icon: "layout-dashboard" },
       { label: "Starter Plan Demo", href: "/dashboard/demo?plan=starter", icon: "rocket" },
       { label: "Pro Growth Demo", href: "/dashboard/demo?plan=pro", icon: "trending-up" },
       { label: "Enterprise Demo", href: "/dashboard/demo?plan=enterprise", icon: "building-2" },
@@ -98,7 +109,10 @@ const nav = [
   },
   {
     label: "Workspace",
-    items: [{ label: "Settings", href: "/dashboard/settings", icon: "gear" }],
+    items: [
+      { label: "Customise Dashboard", href: "/dashboard/customize", icon: "sliders" },
+      { label: "Settings", href: "/dashboard/settings", icon: "gear" },
+    ],
   },
 ] as const;
 
@@ -107,6 +121,8 @@ function Icon({ name }: { name: string }) {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden {...common}>
       {name === "home" && <> <path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5" /><path d="M9.5 21v-6h5v6" /> </>}
+      {name === "sliders" && <> <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3" /><path d="M1 14h6M9 8h6M17 16h6" /> </>}
+      {name === "layout-dashboard" && <> <rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /> </>}
       {name === "chart" && <> <path d="M3 3v18h18M7 16l3-3 2 2 4-5 4 4" /> </>}
       {name === "search" && <> <circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /> </>}
       {name === "target" && <> <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" /><circle cx="12" cy="12" r="1" /> </>}
@@ -184,7 +200,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
                     aria-current={active ? "page" : undefined}
                     className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors ${
                       active
-                        ? "bg-iris/12 text-chalk shadow-[inset_0_0_0_1px_rgba(139,92,246,0.25)]"
+                        ? "bg-iris/12 text-chalk shadow-[inset_0_0_0_1px_rgba(62,124,176,0.25)]"
                         : "text-mist hover:bg-surface-2 hover:text-chalk"
                     }`}
                   >
@@ -203,7 +219,13 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarInner({
+  onNavigate,
+  workspace,
+}: {
+  onNavigate?: () => void;
+  workspace: DashboardWorkspace;
+}) {
   return (
     <>
       <div className="flex items-center justify-between px-5 py-4">
@@ -217,16 +239,34 @@ function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
       <NavLinks onNavigate={onNavigate} />
       <div className="border-t border-line p-4">
         <div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-3.5">
-          <p className="font-mono text-[0.55rem] uppercase tracking-[0.16em] text-iris">Demo workspace</p>
-          <p className="mt-1.5 text-sm text-chalk">Northwind Labs</p>
-          <p className="text-xs text-mist-dim">Pro Growth plan · 30 prompts</p>
+          <p className="font-mono text-[0.55rem] uppercase tracking-[0.16em] text-iris">Workspace</p>
+          <p className="mt-1.5 text-sm text-chalk">{workspace.name}</p>
+          <p className="text-xs text-mist-dim">
+            {workspace.plan} plan · {workspace.prompts} prompt{workspace.prompts === 1 ? "" : "s"}
+          </p>
+          {workspace.domain ? (
+            <p className="mt-1.5 truncate font-mono text-[0.58rem] text-mist-dim" title={workspace.domain}>
+              {workspace.domain}
+            </p>
+          ) : null}
+          {workspace.category ? (
+            <p className="mt-0.5 text-[0.62rem] text-mist-dim">{categoryLabel(workspace.category)}</p>
+          ) : null}
         </div>
       </div>
     </>
   );
 }
 
-export function DashboardShell({ user, children }: { user: DashboardUser; children: React.ReactNode }) {
+export function DashboardShell({
+  user,
+  workspace,
+  children,
+}: {
+  user: DashboardUser;
+  workspace: DashboardWorkspace;
+  children: React.ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -236,7 +276,7 @@ export function DashboardShell({ user, children }: { user: DashboardUser; childr
     <div className="min-h-dvh bg-surface text-mist">
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-line bg-surface lg:flex">
-        <SidebarInner />
+        <SidebarInner workspace={workspace} />
       </aside>
 
       {/* Mobile drawer */}
@@ -244,7 +284,7 @@ export function DashboardShell({ user, children }: { user: DashboardUser; childr
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Dashboard navigation">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setOpen(false)} aria-hidden />
           <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-line bg-surface">
-            <SidebarInner onNavigate={() => setOpen(false)} />
+            <SidebarInner workspace={workspace} onNavigate={() => setOpen(false)} />
           </aside>
         </div>
       )}
@@ -267,14 +307,16 @@ export function DashboardShell({ user, children }: { user: DashboardUser; childr
           <span className="size-9" />
         </div>
 
-        <DashboardTopbar user={user} />
+        <DashboardTopbar user={user} workspace={workspace} />
 
-        <main className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 lg:py-10">{children}</main>
+        {/* The page landmark is provided by the root chrome; this is the
+            width-constrained container inside it. */}
+        <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 lg:py-10">{children}</div>
 
         <footer className="mx-auto w-full max-w-6xl px-5 pb-10 sm:px-8">
           <p className="border-t border-line pt-5 font-mono text-[0.62rem] leading-relaxed text-mist-dim">
-            Demo workspace — all metrics, prompts, keywords and content items are illustrative sample data. Sessions
-            are stored in an HMAC-signed cookie; accounts live in a local JSON store.
+            Every metric here is read from this workspace&apos;s own tracked data. Sessions are stored in an
+            HMAC-signed cookie; accounts live in the OmniGEO backend.
           </p>
         </footer>
       </div>

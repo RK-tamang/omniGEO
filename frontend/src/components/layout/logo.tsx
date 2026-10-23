@@ -7,8 +7,8 @@ export function Logo({ className = "" }: { className?: string }) {
         <path d="M13 1.5v4M13 20.5v4M1.5 13h4M20.5 13h4" stroke="url(#lg)" strokeWidth="1.6" strokeLinecap="round" />
         <defs>
           <linearGradient id="lg" x1="0" y1="0" x2="26" y2="26">
-            <stop stopColor="#8b5cf6" />
-            <stop offset="1" stopColor="#22d3ee" />
+            <stop stopColor="#3e7cb0" />
+            <stop offset="1" stopColor="#39a0a8" />
           </linearGradient>
         </defs>
       </svg>

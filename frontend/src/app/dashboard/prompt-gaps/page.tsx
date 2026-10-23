@@ -1,7 +1,33 @@
+"use client";
+
 import { Panel } from "@/components/dashboard/panel";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useWorkspaceData } from "@/hooks/use-workspace-data";
+import { ENGINE_LABELS, type EngineKey } from "@/lib/dashboard-config";
 
 export default function PromptGapsPage() {
+  const { data } = useWorkspaceData();
+
+  // A gap is a prompt a competitor is cited for where you are not.
+  const promptById = new Map((data?.prompts ?? []).map((p) => [p.id, p]));
+  const competitorById = new Map((data?.competitors ?? []).map((c) => [c.id, c.name]));
+
+  const gaps = (data?.competitorPrompts ?? [])
+    .filter((cp) => cp.status === "cited")
+    .map((cp) => {
+      const prompt = promptById.get(cp.promptId);
+      const own = prompt?.engines?.[cp.engine as EngineKey];
+      return {
+        id: cp.id,
+        prompt: prompt?.prompt ?? "—",
+        competitor: competitorById.get(cp.competitorId) ?? "—",
+        engine: ENGINE_LABELS[cp.engine as EngineKey] ?? cp.engine,
+        youWin: own === "cited",
+      };
+    })
+    .filter((g) => !g.youWin);
+
   return (
     <div className="space-y-6">
       <Panel title="Competitor Prompt Gap Finder" sub="Identifies questions competitors win that you don't — your content opportunities">
@@ -10,42 +36,40 @@ export default function PromptGapsPage() {
             <Button>Find Gaps</Button>
             <Button variant="secondary">Export Opportunities</Button>
           </div>
-          <div className="rounded-xl border border-line overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-surface-1 border-b border-line">
-                  <th className="px-4 py-3 text-left text-sm font-medium text-mist">Prompt Gap</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-mist">Competitor</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-mist">Engine</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-mist">Volume</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-mist">Difficulty</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-line/50 hover:bg-surface-1">
-                  <td className="px-4 py-3 font-medium text-chalk truncate max-w-xs">how to choose CRM for startup</td>
-                  <td className="px-4 py-3 text-center text-sm text-chalk">Competitor A</td>
-                  <td className="px-4 py-3 text-center text-sm text-mist">ChatGPT</td>
-                  <td className="px-4 py-3 text-center font-mono text-chalk">8,500/mo</td>
-                  <td className="px-4 py-3 text-center"><span className="text-gold text-sm font-medium">Medium</span></td>
-                </tr>
-                <tr className="border-b border-line/50 hover:bg-surface-1">
-                  <td className="px-4 py-3 font-medium text-chalk truncate max-w-xs">CRM pricing comparison 2024</td>
-                  <td className="px-4 py-3 text-center text-sm text-chalk">Competitor B</td>
-                  <td className="px-4 py-3 text-center text-sm text-mist">Perplexity</td>
-                  <td className="px-4 py-3 text-center font-mono text-chalk">12,000/mo</td>
-                  <td className="px-4 py-3 text-center"><span className="text-gold text-sm font-medium">Medium</span></td>
-                </tr>
-                <tr className="border-b border-line/50 hover:bg-surface-1">
-                  <td className="px-4 py-3 font-medium text-chalk truncate max-w-xs">best AI CRM tools 2024</td>
-                  <td className="px-4 py-3 text-center text-sm text-chalk">Competitor C</td>
-                  <td className="px-4 py-3 text-center text-sm text-mist">ChatGPT</td>
-                  <td className="px-4 py-3 text-center font-mono text-chalk">5,200/mo</td>
-                  <td className="px-4 py-3 text-center"><span className="text-coral text-sm font-medium">High</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+
+          {gaps.length === 0 ? (
+            <EmptyState
+              title="No prompt gaps found"
+              sub="A gap is a prompt a competitor was cited for and you were not. It appears here once both results have been recorded for the same prompt."
+            />
+          ) : (
+            <div className="rounded-xl border border-line overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-surface-1 border-b border-line">
+                    <th className="px-4 py-3 text-left text-sm font-medium text-mist">Prompt Gap</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-mist">Competitor</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-mist">Engine</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-mist">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {gaps.map((g) => (
+                    <tr key={g.id} className="border-b border-line/50 hover:bg-surface-1">
+                      <td className="px-4 py-3 font-medium text-chalk truncate max-w-xs">{g.prompt}</td>
+                      <td className="px-4 py-3 text-center text-sm text-chalk">{g.competitor}</td>
+                      <td className="px-4 py-3 text-center text-sm text-mist">{g.engine}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[0.5rem] uppercase tracking-widest bg-gold/15 text-gold border-gold/30">
+                          gap
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </Panel>
     </div>

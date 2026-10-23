@@ -12,21 +12,29 @@
  *   [data-theme="dark"]            dark
  */
 @theme {
-  /* Accents — identical in both themes so brand colour stays recognisable */
-  --color-iris: #8b5cf6;
-  --color-aqua: #22d3ee;
-  --color-mint: #a3e635;
-  --color-gold: #fbbf24;
-  --color-coral: #fb7185;
+  /*
+   * Accents — the brand family.
+   *
+   * Derived from the "deep water" palette: a cool navy-slate neutral ramp
+   * (below) paired with ocean-blue / teal accents that sit naturally inside
+   * it, so nothing on the page fights the background.
+   */
+  --color-iris: #3e7cb0;
+  --color-aqua: #39a0a8;
+  --color-mint: #5fb98a;
+  --color-gold: #d9a441;
+  --color-coral: #dc6e72;
+
+  /* Dimmed variants of the status accents — used for secondary deltas
+     (e.g. "+5% vs last month") where the full accent is too loud. */
+  --color-mint-dim: #4a8f6c;
+  --color-gold-dim: #a87c33;
+  --color-coral-dim: #a8575a;
 
   /* Secondary accents — used by tool-category chips and badges. */
-  --color-purple: #a78bfa;
-  --color-pink: #f472b6;
-  --color-gray: #94a3b8;
-
-  /* Highlight — the strip/wash colour used on cards and section rules.
-     Mapped to a theme token so light can carry its own amber identity. */
-  --color-amber: #ff9f1c;
+  --color-purple: #8a93c8;
+  --color-pink: #c585a3;
+  --color-gray: #8a9aa3;
 
   /*
    * Semantic tokens.
@@ -42,41 +50,46 @@
    * The values here are the dark-theme defaults (they mirror the `:root`
    * block) and act as the fallback when no `data-theme` is set.
    */
-  --color-ink-950: #05050a;
-  --color-ink-900: #090912;
-  --color-ink-850: #0d0d18;
-  --color-ink-800: #12121f;
-  --color-line: rgba(255, 255, 255, 0.08);
-  --color-line-strong: rgba(255, 255, 255, 0.16);
-  --color-chalk: #f2f2f8;
-  --color-mist: #9c9cb0;
-  --color-mist-dim: #7c7c92;
-  --color-surface: #05050a;
-  --color-surface-1: rgba(255, 255, 255, 0.02);
-  --color-surface-2: rgba(255, 255, 255, 0.04);
-  --color-surface-3: rgba(255, 255, 255, 0.07);
-  --color-surface-solid: #0d0d18;
-  --color-veil: rgba(9, 9, 16, 0.97);
-  --color-veil-2: rgba(18, 18, 30, 0.97);
-  --color-grid: rgba(255, 255, 255, 0.045);
-  --color-code-bg: #0a0a12;
-  --color-code-text: #dedeec;
-  --color-code-inline: #e9d5ff;
-  --color-quote-text: #d4d4e2;
-  --color-body-strong: #cbcbda;
-  --color-em: #d8d8e6;
+  --color-ink-950: #06141b;
+  --color-ink-900: #0e1c27;
+  --color-ink-850: #11212d;
+  --color-ink-800: #1b2e3c;
+  --color-line: rgba(155, 168, 171, 0.14);
+  --color-line-strong: rgba(155, 168, 171, 0.26);
+  --color-chalk: #ccd0cf;
+  --color-mist: #9ba8ab;
+  --color-mist-dim: #6e818c;
+  --color-surface: #06141b;
+  --color-surface-1: rgba(155, 168, 171, 0.04);
+  --color-surface-2: rgba(155, 168, 171, 0.07);
+  --color-surface-3: rgba(155, 168, 171, 0.11);
+  --color-surface-solid: #11212d;
+  --color-veil: rgba(6, 20, 27, 0.97);
+  --color-veil-2: rgba(17, 33, 45, 0.97);
+  --color-grid: rgba(155, 168, 171, 0.06);
+  --color-code-bg: #0e1c27;
+  --color-code-text: #b9c4c7;
+  --color-code-inline: #9fd4e0;
+  --color-quote-text: #a8b5b8;
+  --color-body-strong: #c2cdd0;
+  --color-em: #d5dedf;
   --color-on-accent: #ffffff;
-  --color-sel: rgba(139, 92, 246, 0.35);
+  --color-sel: rgba(62, 124, 176, 0.35);
   --color-sel-text: #ffffff;
-  --color-highlight: #8b5cf6;
-  --color-highlight-soft: #22d3ee;
-  --color-highlight-line: rgba(139, 92, 246, 0.6);
-  --color-highlight-wash: rgba(139, 92, 246, 0.16);
+  --color-highlight: #3e7cb0;
+  --color-highlight-soft: #39a0a8;
+  --color-highlight-line: rgba(62, 124, 176, 0.6);
+  --color-highlight-wash: rgba(62, 124, 176, 0.16);
   --color-highlight-ink: #ffffff;
+
+  /* Chart internals — SVG strokes need a value per theme. */
+  --color-chart-grid: rgba(155, 168, 171, 0.1);
+  --color-chart-axis: rgba(155, 168, 171, 0.65);
+  --color-chart-crosshair: rgba(155, 168, 171, 0.28);
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
-  --font-display: var(--font-instrument), Georgia, "Times New Roman", serif;
+  --font-display: var(--font-gullying), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 /* ---------- dark theme (opt-in) ---------- */
@@ -84,57 +97,62 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  /* Ink — deep near-black palette */
-  --color-ink-950: #05050a;
-  --color-ink-900: #090912;
-  --color-ink-850: #0d0d18;
-  --color-ink-800: #12121f;
+  /* Ink — the deep end of the navy-slate ramp */
+  --color-ink-950: #06141b;
+  --color-ink-900: #11212d;
+  --color-ink-850: #253745;
+  --color-ink-800: #4a5c6a;
 
   /* Surfaces, lines & text */
-  --color-line: rgba(255, 255, 255, 0.08);
-  --color-line-strong: rgba(255, 255, 255, 0.16);
-  --color-chalk: #f2f2f8;
-  --color-mist: #9c9cb0;
-  --color-mist-dim: #7c7c92;
+  --color-line: rgba(155, 168, 171, 0.14);
+  --color-line-strong: rgba(155, 168, 171, 0.26);
+  --color-chalk: #ccd0cf;
+  --color-mist: #9ba8ab;
+  --color-mist-dim: #6e818c;
 
   /* Surface stack — one step per elevation */
-  --color-surface: #05050a;
-  --color-surface-1: rgba(255, 255, 255, 0.02);
-  --color-surface-2: rgba(255, 255, 255, 0.04);
-  --color-surface-3: rgba(255, 255, 255, 0.07);
-  --color-surface-solid: #0d0d18;
-  --color-veil: rgba(9, 9, 16, 0.97);
-  --color-veil-2: rgba(18, 18, 30, 0.97);
-  --color-grid: rgba(255, 255, 255, 0.045);
-  --color-code-bg: #0a0a12;
-  --color-code-text: #dedeec;
-  --color-code-inline: #e9d5ff;
-  --color-quote-text: #d4d4e2;
-  --color-body-strong: #cbcbda;
-  --color-em: #d8d8e6;
+  --color-surface: #06141b;
+  --color-surface-1: rgba(155, 168, 171, 0.04);
+  --color-surface-2: rgba(155, 168, 171, 0.07);
+  --color-surface-3: rgba(155, 168, 171, 0.11);
+  --color-surface-solid: #11212d;
+  --color-veil: rgba(6, 20, 27, 0.97);
+  --color-veil-2: rgba(17, 33, 45, 0.97);
+  --color-grid: rgba(155, 168, 171, 0.06);
+  --color-code-bg: #0e1c27;
+  --color-code-text: #b9c4c7;
+  --color-code-inline: #9fd4e0;
+  --color-quote-text: #a8b5b8;
+  --color-body-strong: #c2cdd0;
+  --color-em: #d5dedf;
   --color-on-accent: #ffffff;
-  --color-sel: rgba(139, 92, 246, 0.35);
+  --color-sel: rgba(62, 124, 176, 0.35);
   --color-sel-text: #ffffff;
   --color-grain: 0.05;
-  --color-shadow: rgba(139, 92, 246, 0.45);
-  --color-glow: rgba(255, 255, 255, 0.06);
+  --color-shadow: rgba(62, 124, 176, 0.45);
+  --color-glow: rgba(155, 168, 171, 0.08);
+
+  /* Chart internals */
+  --color-chart-grid: rgba(155, 168, 171, 0.1);
+  --color-chart-axis: rgba(155, 168, 171, 0.65);
+  --color-chart-crosshair: rgba(155, 168, 171, 0.28);
 
   /* Elevation — the shadow stack used by dashboard surfaces. Kept in tokens
      (rather than hard-coded per component) so light and dark each get a
      shadow that actually reads against their own background. */
-  --shadow-panel: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.7);
-  --shadow-panel-hover: 0 2px 4px rgba(0, 0, 0, 0.45), 0 14px 32px -14px rgba(0, 0, 0, 0.85);
-  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.5), 0 16px 40px -16px rgba(0, 0, 0, 0.9);
-  --text-gradient-from: #c4b5fd;
-  --text-gradient-mid: #8b5cf6;
-  --text-gradient-to: #22d3ee;
-  --link-soft: #c4b5fd;
+  --shadow-panel: 0 1px 2px rgba(2, 8, 12, 0.45), 0 8px 24px -12px rgba(2, 8, 12, 0.75);
+  --shadow-panel-hover: 0 2px 4px rgba(2, 8, 12, 0.5), 0 14px 32px -14px rgba(2, 8, 12, 0.9);
+  --shadow-raised: 0 1px 2px rgba(2, 8, 12, 0.55), 0 16px 40px -16px rgba(2, 8, 12, 0.95);
+  --text-gradient-from: #a9c8dc;
+  --text-gradient-mid: #3e7cb0;
+  --text-gradient-to: #39a0a8;
+  --link-soft: #9dc3d8;
 
-  /* Highlight strip — violet identity in dark */
-  --color-highlight: #8b5cf6;
-  --color-highlight-soft: #22d3ee;
-  --color-highlight-line: rgba(139, 92, 246, 0.6);
-  --color-highlight-wash: rgba(139, 92, 246, 0.16);
+  /* Highlight strip — ocean blue in dark */
+  --color-highlight: #3e7cb0;
+  --color-highlight-soft: #39a0a8;
+  --color-highlight-line: rgba(62, 124, 176, 0.6);
+  --color-highlight-wash: rgba(62, 124, 176, 0.16);
   --color-highlight-ink: #ffffff;
 }
 
@@ -142,56 +160,81 @@
 [data-theme="light"] {
   color-scheme: light;
 
-  /* Ink — warm off-white / cream palette, mirrored elevation */
-  --color-ink-950: #faf7f2;
-  --color-ink-900: #fffdf9;
-  --color-ink-850: #f4efe6;
-  --color-ink-800: #ece5d9;
+  /* Ink — the light end of the same ramp, mirrored elevation */
+  --color-ink-950: #eef1f1;
+  --color-ink-900: #f7f9f9;
+  --color-ink-850: #e4e9ea;
+  --color-ink-800: #d5dcdd;
 
-  /* Surfaces, lines & text — warm neutral (hue ~35) */
-  --color-line: rgba(60, 48, 30, 0.12);
-  --color-line-strong: rgba(60, 48, 30, 0.24);
-  --color-chalk: #241f18;
-  --color-mist: #6b6152;
-  --color-mist-dim: #8d8373;
+  /* Surfaces, lines & text — the same ramp, read from the light end */
+  --color-line: rgba(6, 20, 27, 0.12);
+  --color-line-strong: rgba(6, 20, 27, 0.24);
+  --color-chalk: #06141b;
+  --color-mist: #253745;
+  --color-mist-dim: #4a5c6a;
 
-  --color-surface: #faf7f2;
-  --color-surface-1: rgba(60, 48, 30, 0.03);
-  --color-surface-2: rgba(60, 48, 30, 0.055);
-  --color-surface-3: rgba(60, 48, 30, 0.085);
-  --color-surface-solid: #fffdf9;
-  --color-veil: rgba(255, 253, 249, 0.97);
-  --color-veil-2: rgba(252, 249, 243, 0.97);
-  --color-grid: rgba(60, 48, 30, 0.06);
-  --color-code-bg: #f4efe6;
-  --color-code-text: #3a3227;
-  --color-code-inline: #6d28d9;
-  --color-quote-text: #4a4034;
-  --color-body-strong: #443c31;
-  --color-em: #4a4034;
+  /*
+   * Accents — darkened for the light theme.
+   *
+   * The shared @theme values are tuned for the dark background. On a pale
+   * surface the same hues drop below 3:1, so light overrides them with
+   * deeper versions of the same hues. The utilities reference
+   * `var(--color-*)`, so the override applies everywhere at runtime.
+   */
+  --color-iris: #2c6d9e;
+  --color-aqua: #1f6b71;
+  --color-mint: #2c7350;
+  --color-gold: #8a5f1d;
+  --color-coral: #a33f43;
+  --color-mint-dim: #2c7350;
+  --color-gold-dim: #8a5f1d;
+  --color-coral-dim: #a33f43;
+  --color-purple: #4f5899;
+  --color-pink: #8f3f63;
+  --color-gray: #4a5c6a;
+
+  --color-surface: #eef1f1;
+  --color-surface-1: rgba(6, 20, 27, 0.03);
+  --color-surface-2: rgba(6, 20, 27, 0.055);
+  --color-surface-3: rgba(6, 20, 27, 0.085);
+  --color-surface-solid: #f7f9f9;
+  --color-veil: rgba(247, 249, 249, 0.97);
+  --color-veil-2: rgba(238, 241, 241, 0.97);
+  --color-grid: rgba(6, 20, 27, 0.06);
+  --color-code-bg: #e4e9ea;
+  --color-code-text: #2b3a42;
+  --color-code-inline: #1f6d84;
+  --color-quote-text: #35474f;
+  --color-body-strong: #22323a;
+  --color-em: #16242c;
   --color-on-accent: #ffffff;
-  --color-sel: rgba(139, 92, 246, 0.22);
-  --color-sel-text: #2a1160;
+  --color-sel: rgba(62, 124, 176, 0.2);
+  --color-sel-text: #06141b;
   --color-grain: 0.03;
-  --color-shadow: rgba(120, 85, 30, 0.22);
-  --color-glow: rgba(60, 48, 30, 0.1);
+  --color-shadow: rgba(6, 20, 27, 0.22);
+  --color-glow: rgba(6, 20, 27, 0.08);
 
-  /* Elevation — warmer and softer in light, where shadows read as depth
+  /* Chart internals */
+  --color-chart-grid: rgba(6, 20, 27, 0.1);
+  --color-chart-axis: rgba(6, 20, 27, 0.6);
+  --color-chart-crosshair: rgba(6, 20, 27, 0.26);
+
+  /* Elevation — cooler and softer in light, where shadows read as depth
      rather than as a dark halo. */
-  --shadow-panel: 0 1px 2px rgba(60, 48, 30, 0.06), 0 6px 18px -10px rgba(60, 48, 30, 0.16);
-  --shadow-panel-hover: 0 2px 4px rgba(60, 48, 30, 0.07), 0 12px 28px -12px rgba(60, 48, 30, 0.22);
-  --shadow-raised: 0 1px 2px rgba(60, 48, 30, 0.07), 0 18px 40px -16px rgba(60, 48, 30, 0.26);
-  --text-gradient-from: #6d28d9;
-  --text-gradient-mid: #7c3aed;
-  --text-gradient-to: #0e7490;
-  --link-soft: #6d28d9;
+  --shadow-panel: 0 1px 2px rgba(6, 20, 27, 0.06), 0 6px 18px -10px rgba(6, 20, 27, 0.16);
+  --shadow-panel-hover: 0 2px 4px rgba(6, 20, 27, 0.07), 0 12px 28px -12px rgba(6, 20, 27, 0.22);
+  --shadow-raised: 0 1px 2px rgba(6, 20, 27, 0.07), 0 18px 40px -16px rgba(6, 20, 27, 0.26);
+  --text-gradient-from: #2c6d9e;
+  --text-gradient-mid: #3e7cb0;
+  --text-gradient-to: #2e7f86;
+  --link-soft: #2c6d9e;
 
-  /* Highlight strip — amber identity in light (#FF9F1C) */
-  --color-highlight: #ff9f1c;
-  --color-highlight-soft: #ffb84d;
-  --color-highlight-line: rgba(255, 159, 28, 0.85);
-  --color-highlight-wash: rgba(255, 159, 28, 0.16);
-  --color-highlight-ink: #3d2400;
+  /* Highlight strip — deeper ocean blue in light, so it reads on a pale bg */
+  --color-highlight: #2c6d9e;
+  --color-highlight-soft: #39a0a8;
+  --color-highlight-line: rgba(44, 109, 158, 0.85);
+  --color-highlight-wash: rgba(44, 109, 158, 0.16);
+  --color-highlight-ink: #ffffff;
 }
 
 /* Keep Tailwind's `dark:` variant meaningful even though we script the theme. */
@@ -582,7 +625,7 @@ body::after {
   background: var(--color-surface-1);
   padding: 1.15rem 1.4rem;
   color: var(--color-quote-text);
-  font-family: var(--font-instrument), Georgia, serif;
+  font-family: var(--font-display);
   font-style: italic;
   font-size: 1.15rem;
   line-height: 1.6;

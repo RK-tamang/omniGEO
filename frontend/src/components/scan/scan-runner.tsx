@@ -6,15 +6,18 @@ import { SCAN_STEPS } from "@/lib/scan-data";
 
 const DOMAIN_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i;
 
+type ScanState = "idle" | "starting" | "running" | "done" | "error";
+
 export function ScanRunner() {
   const router = useRouter();
   const [domain, setDomain] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<ScanState>("idle");
   const [step, setStep] = useState(-1); // -1 idle, 0..n-1 running, n done
 
-  const running = step >= 0 && step < SCAN_STEPS.length;
+  const running = state === "starting" || state === "running";
 
-  function start(e: React.FormEvent) {
+  async function start(e: React.FormEvent) {
     e.preventDefault();
     const clean = domain.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
     if (!DOMAIN_RE.test(clean)) {
@@ -22,22 +25,73 @@ export function ScanRunner() {
       return;
     }
     setError(null);
+    setState("starting");
     setStep(0);
 
+    try {
+      const res = await fetch("/api/scan/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: clean }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body?.ok) {
+        throw new Error(body?.error ?? "Could not start the scan.");
+      }
+
+      const scanIds: string[] = [body?.scans?.visibility, body?.scans?.audit].filter(Boolean);
+      if (scanIds.length === 0) throw new Error("The scan engine did not return a scan id.");
+
+      setState("running");
+      await waitForScans(scanIds, clean);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start the scan.");
+      setState("error");
+      setStep(-1);
+    }
+  }
+
+  /**
+   * Poll the backend until every queued scan finishes, then open the report.
+   * The audit and visibility scans run in parallel, so both have to land
+   * before the report has anything to show.
+   */
+  async function waitForScans(scanIds: string[], clean: string) {
     const started = Date.now();
-    let i = 0;
-    const tick = () => {
-      i += 1;
-      if (i >= SCAN_STEPS.length) {
-        const id = `scan-${started.toString(36)}`;
+    const timeout = 180_000;
+    const pending = new Set(scanIds);
+
+    for (;;) {
+      if (Date.now() - started > timeout) {
+        throw new Error("The scan is taking too long. Try again in a moment.");
+      }
+
+      for (const id of [...pending]) {
+        const res = await fetch(`/api/scans/${encodeURIComponent(id)}`, { cache: "no-store" });
+        const body = await res.json();
+        const status = body?.scan?.status ?? body?.status;
+
+        if (status === "completed") {
+          pending.delete(id);
+        } else if (status === "failed") {
+          throw new Error(body?.scan?.error ?? body?.error ?? "The scan failed.");
+        }
+      }
+
+      if (pending.size === 0) {
         setStep(SCAN_STEPS.length);
-        router.push(`/scan/${id}?d=${encodeURIComponent(clean)}`);
+        setState("done");
+        router.push(`/scan/${scanIds[0]}?d=${encodeURIComponent(clean)}`);
         return;
       }
-      setStep(i);
-      window.setTimeout(tick, 420 + Math.random() * 280);
-    };
-    window.setTimeout(tick, 450);
+
+      // Walk the step list while the engine works.
+      const elapsed = Date.now() - started;
+      const next = Math.min(SCAN_STEPS.length - 1, Math.floor(elapsed / 6000));
+      setStep(next);
+
+      await new Promise((resolve) => window.setTimeout(resolve, 1500));
+    }
   }
 
   return (
@@ -73,7 +127,7 @@ export function ScanRunner() {
         </p>
       )}
 
-      {(running || step >= SCAN_STEPS.length) && (
+      {(running || state === "done") && (
         <ol className="mt-8 space-y-2.5" aria-live="polite">
           {SCAN_STEPS.map((s, i) => {
             const done = i < step;

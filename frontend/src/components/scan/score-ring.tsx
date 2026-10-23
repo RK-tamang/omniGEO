@@ -33,7 +33,7 @@ export function ScoreRing({ value, label, size = 168 }: { value: number; label: 
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <svg viewBox={`0 0 ${size} ${size}`} className="size-full -rotate-90" role="img" aria-label={`${label}: ${value} out of 100`}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-chart-grid)" strokeWidth={stroke} />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -47,8 +47,8 @@ export function ScoreRing({ value, label, size = 168 }: { value: number; label: 
         />
         <defs>
           <linearGradient id="ring-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#8b5cf6" />
-            <stop offset="100%" stopColor="#22d3ee" />
+            <stop offset="0%" stopColor="#3e7cb0" />
+            <stop offset="100%" stopColor="#39a0a8" />
           </linearGradient>
         </defs>
       </svg>

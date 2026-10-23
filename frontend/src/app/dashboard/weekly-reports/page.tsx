@@ -1,13 +1,69 @@
-import { Panel } from "@/components/dashboard/panel";
+"use client";
+
+import { DashboardHeader, Panel } from "@/components/dashboard/panel";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useWorkspaceData } from "@/hooks/use-workspace-data";
 
 export default function WeeklyReportsPage() {
+  const { data } = useWorkspaceData();
+  const reports = (data?.reports ?? []).filter((r) => r.type === "weekly" || r.type === "custom");
+
+  const tiles = [
+    { label: "Reports Generated", value: `${reports.length}`, tone: "text-chalk" },
+    { label: "Completed", value: `${reports.filter((r) => r.status === "completed").length}`, tone: "text-mint" },
+    { label: "Pending", value: `${reports.filter((r) => r.status !== "completed").length}`, tone: "text-gold" },
+    { label: "Latest", value: reports[0]?.createdAt ? new Date(reports[0].createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "—", tone: "text-chalk" },
+  ];
+
   return (
     <div className="space-y-6">
-      <Panel title="Weekly GEO Performance Report" sub="Automated weekly summary — visibility trends, new citations, competitor moves">
+      <DashboardHeader
+        title="Weekly Reports"
+        sub="Automated weekly summary — visibility trends, new citations, competitor moves"
+      />
+
+      <Panel title="Recent reports" sub="Generated for your workspace, ready to export or schedule" level={2}>
         <div className="space-y-4">
           <div className="flex items-center gap-4"><Button>Generate Report</Button><Button variant="secondary">Schedule Delivery</Button></div>
-          <div className="space-y-3"><div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-4 border-l-4 border-mint flex items-center justify-between"><div className="flex items-center gap-3"><span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[0.5rem] uppercase tracking-widest bg-mint/15 text-mint border-mint/30">Ready</span><span className="font-medium text-chalk">Weekly GEO Performance - Week 42</span></div><span className="text-xs text-mist-dim">Generated Oct 20, 9:00 AM</span></div><div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-4 border-l-4 border-aqua flex items-center justify-between"><div className="flex items-center gap-3"><span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[0.5rem] uppercase tracking-widest bg-mint/15 text-mint border-mint/30">Ready</span><span className="font-medium text-chalk">Weekly GEO Performance - Week 41</span></div><span className="text-xs text-mist-dim">Generated Oct 13, 9:00 AM</span></div><div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-4 border-l-4 border-gold flex items-center justify-between"><div className="flex items-center gap-3"><span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[0.5rem] uppercase tracking-widest bg-gold/15 text-gold border-gold/30">Ready</span><span className="font-medium text-chalk">Weekly GEO Performance - Week 40</span></div><span className="text-xs text-mist-dim">Generated Oct 6, 9:00 AM</span></div></div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5"><p className="text-sm text-mist">Reports This Month</p><p className="mt-2 text-3xl font-semibold text-chalk">4</p></div><div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5"><p className="text-sm text-mist">Avg Open Rate</p><p className="mt-2 text-3xl font-semibold text-mint">78%</p></div><div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5"><p className="text-sm text-mist">Total Recipients</p><p className="mt-2 text-3xl font-semibold text-chalk">234</p></div><div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5"><p className="text-sm text-mist">Avg Read Time</p><p className="mt-2 text-3xl font-semibold text-chalk">4m 32s</p></div></div></div></Panel></div>
+
+          {reports.length === 0 ? (
+            <EmptyState
+              title="No reports generated yet"
+              sub="Generate a report and it is listed here with its format, status and the workspace data it was built from."
+            />
+          ) : (
+            <div className="space-y-3">
+              {reports.map((r) => (
+                <div
+                  key={r.id}
+                  className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-4 border-l-4 border-mint flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[0.5rem] uppercase tracking-widest bg-mint/15 text-mint border-mint/30">
+                      {r.status}
+                    </span>
+                    <span className="font-medium text-chalk">{r.name}</span>
+                    <span className="font-mono text-[0.55rem] uppercase tracking-widest text-mist-dim">{r.format}</span>
+                  </div>
+                  <span className="text-xs text-mist-dim">
+                    {r.createdAt ? new Date(r.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {tiles.map((t) => (
+              <div key={t.label} className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5">
+                <p className="text-sm text-mist">{t.label}</p>
+                <p className={`mt-2 text-3xl font-semibold ${t.tone}`}>{t.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Panel>
+    </div>
   );
 }

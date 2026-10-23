@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { PublicChrome } from "@/components/layout/public-chrome";
 import { ThemeProvider, themeBootScript } from "@/components/theme/theme-provider";
 import { site } from "@/lib/site";
@@ -15,11 +16,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const instrument = Instrument_Serif({
-  variable: "--font-instrument",
+// Self-hosted display face. See ./fonts/LICENSE.txt — the bundled file is the
+// demo (personal-use) cut; commercial use needs a licence from Din Studio.
+// Drop in the licensed file under the same name to swap it, no code change.
+const gullying = localFont({
+  src: "./fonts/gullying-regular.ttf",
+  variable: "--font-gullying",
   weight: "400",
-  style: ["normal", "italic"],
-  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -45,8 +49,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#faf7f2" },
-    { media: "(prefers-color-scheme: dark)", color: "#05050a" },
+    { media: "(prefers-color-scheme: light)", color: "#eef1f1" },
+    { media: "(prefers-color-scheme: dark)", color: "#06141b" },
   ],
   colorScheme: "light dark",
 };
@@ -61,7 +65,7 @@ export default function RootLayout({
       lang="en"
       data-theme="light"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${instrument.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable} ${gullying.variable}`}
     >
       <head>
         {/* Applies the stored theme before first paint — avoids a theme flash. */}

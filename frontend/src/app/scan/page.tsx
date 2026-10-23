@@ -64,19 +64,19 @@ export default function ScanPage() {
             <div className="mt-10 max-w-2xl">
               <ScanRunner />
               <p className="mt-4 font-mono text-[0.65rem] tracking-wide text-mist-dim">
-                About 40 seconds · no account needed · demo report, illustrative data
+                About 40 seconds · no account needed · a real report from a live scan of your site
               </p>
             </div>
           </Reveal>
 
           <Reveal delay={120}>
             <p className="mt-6 text-sm text-mist">
-              Just want to look around?{" "}
+              Want to see the product first?{" "}
               <Link
-                href="/scan/demo?d=northwindlabs.com"
+                href="/dashboard/demo/dashboards"
                 className="underline decoration-iris/50 underline-offset-4 hover:text-chalk"
               >
-                View a sample report →
+                Open the dashboard tour →
               </Link>
             </p>
           </Reveal>

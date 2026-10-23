@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { keywords } from "@/lib/dashboard-data";
+import { EmptyState } from "@/components/ui/empty-state";
+import type { KeywordRow } from "@/lib/dashboard-config";
 
 type SortKey = "position" | "change" | "volume";
 
-export function KeywordsTable() {
+export function KeywordsTable({ keywords }: { keywords: KeywordRow[] }) {
   const [sort, setSort] = useState<SortKey>("position");
   const [query, setQuery] = useState("");
 
@@ -15,7 +16,16 @@ export function KeywordsTable() {
       .filter((k) => !q || k.keyword.toLowerCase().includes(q))
       .slice()
       .sort((a, b) => (sort === "position" ? a.position - b.position : sort === "volume" ? b.volume - a.volume : b.change - a.change));
-  }, [sort, query]);
+  }, [keywords, sort, query]);
+
+  if (keywords.length === 0) {
+    return (
+      <EmptyState
+        title="No keywords tracked yet"
+        sub="Rank tracking populates from a live SERP pull. Once a pull runs, every keyword, position and AI Overview flag lands here."
+      />
+    );
+  }
 
   return (
     <div>

@@ -1,7 +1,15 @@
+"use client";
+
 import { Panel } from "@/components/dashboard/panel";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useWorkspaceData } from "@/hooks/use-workspace-data";
+import { mergeCompetitors } from "@/lib/workspace-data";
 
 export default function CompetitorMovementPage() {
+  const { data } = useWorkspaceData();
+  const competitors = mergeCompetitors(data);
+
   return (
     <div className="space-y-6">
       <Panel title="Competitor Movement Tracker" sub="Monitors visibility changes over time — spot rising/falling competitors">
@@ -10,29 +18,35 @@ export default function CompetitorMovementPage() {
             <Button>Run Analysis</Button>
             <Button variant="secondary">Set Alerts</Button>
           </div>
-          <div className="h-64 flex items-end justify-between gap-3 px-2 pb-2">
-            {[
-              { label: "Competitor A", value: 45, trend: "+3%", color: "bg-mint" },
-              { label: "Competitor B", value: 38, trend: "-2%", color: "bg-coral" },
-              { label: "Competitor C", value: 32, trend: "+5%", color: "bg-mint" },
-              { label: "Competitor D", value: 28, trend: "+1%", color: "bg-gold" },
-              { label: "Competitor E", value: 22, trend: "-1%", color: "bg-gold" },
-            ].map((item, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <div
-                  className={`flex-1 w-full rounded-t transition-colors ${item.color}`}
-                  style={{ height: `${item.value}%` }}
-                  title={`${item.label}: ${item.value}%`}
-                />
-                <span className="text-xs text-mist-dim text-center w-20">{item.label}</span>
-                <span className={`font-mono text-sm ${item.trend.startsWith("-") ? "text-coral" : "text-mint"}`}>{item.trend}</span>
+
+          {competitors.length === 0 ? (
+            <EmptyState
+              title="No competitors to track yet"
+              sub="Movement is measured between visibility checks, so it appears once a competitor has been checked at least twice."
+            />
+          ) : (
+            <>
+              <div className="h-64 flex items-end justify-between gap-3 px-2 pb-2">
+                {competitors.map((c) => (
+                  <div key={c.id} className="flex-1 flex flex-col items-center gap-1">
+                    <div
+                      className="flex-1 w-full rounded-t transition-colors bg-mist-dim"
+                      style={{ height: `${Math.max(2, Math.min(100, c.visibility))}%` }}
+                      title={`${c.name}: ${c.visibility}%`}
+                    />
+                    <span className="text-xs text-mist-dim text-center w-20 truncate">{c.name}</span>
+                    <span className="font-mono text-sm text-chalk">{c.visibility}%</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <div className="flex items-center justify-between text-sm text-mist mt-4">
-            <span>Visibility changes over last 30 days</span>
-            <span className="text-chalk font-medium">Market avg: +1.2%</span>
-          </div>
+              <div className="flex items-center justify-between text-sm text-mist mt-4">
+                <span>{competitors.length} competitor{competitors.length === 1 ? "" : "s"} tracked</span>
+                <span className="text-chalk font-medium">
+                  Last checked {competitors[0]?.lastChecked ?? "—"}
+                </span>
+              </div>
+            </>
+          )}
         </div>
       </Panel>
     </div>

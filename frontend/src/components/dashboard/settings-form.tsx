@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Settings } from "@/server/db";
 import { plans } from "@/lib/content";
+import { BUSINESS_CATEGORIES } from "@/lib/business";
 import { formatINR } from "@/lib/format";
 
 const planPrice = (plan: string) => plans.find((p) => p.name === plan)?.monthly ?? 0;
@@ -134,6 +135,48 @@ export function SettingsForm({ initial, profile }: { initial: Settings; profile:
               >
                 Change plan
               </Link>
+            </div>
+          </div>
+        </Section>
+
+        <Section title="Business" sub="What we look for when we check the engines and build your prompts.">
+          <div className="space-y-3.5">
+            <div>
+              <label className={label} htmlFor="brandName">
+                Brand name
+              </label>
+              <input
+                id="brandName"
+                className={input}
+                value={form.brandName ?? ""}
+                onChange={(e) => set("brandName", e.target.value)}
+                placeholder="Northwind Labs"
+                maxLength={100}
+              />
+              <p className="mt-1.5 text-xs leading-relaxed text-mist-dim">
+                The name the engines should start mentioning.
+              </p>
+            </div>
+            <div>
+              <label className={label} htmlFor="category">
+                Category
+              </label>
+              <select
+                id="category"
+                className={input}
+                value={form.category ?? ""}
+                onChange={(e) => set("category", e.target.value)}
+              >
+                <option value="">Not set</option>
+                {BUSINESS_CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-xs leading-relaxed text-mist-dim">
+                Shapes which prompts and content angles we test.
+              </p>
             </div>
           </div>
         </Section>
@@ -298,7 +341,7 @@ export function SettingsForm({ initial, profile }: { initial: Settings; profile:
         />
       </Section>
 
-      <Section title="Danger zone" sub="Irreversible actions for this demo workspace.">
+      <Section title="Danger zone" sub="Irreversible actions for this workspace.">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm text-chalk">Reset workspace settings</p>

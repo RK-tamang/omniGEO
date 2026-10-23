@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Panel } from "@/components/dashboard/panel";
+import { DashboardHeader, Panel } from "@/components/dashboard/panel";
 import { Button } from "@/components/ui/button";
 
 type Plan = "starter" | "pro" | "enterprise";
@@ -129,13 +129,48 @@ const PLANS = {
 type PlanKey = keyof typeof PLANS;
 type PlanData = (typeof PLANS)[PlanKey];
 
-export default function DemoPage() {
+const PLAN_KEYS = Object.keys(PLANS) as PlanKey[];
+
+function isPlanKey(value: string | undefined): value is PlanKey {
+  return !!value && (PLAN_KEYS as string[]).includes(value);
+}
+
+export default function DemoPage({ searchParams }: { searchParams: Promise<{ plan?: string }> }) {
+  // The sidebar links to /dashboard/demo?plan=starter|pro|enterprise, so the
+  // query string has to pick the starting plan.
+  const [query, setQuery] = useState<{ plan?: string }>({});
+
+  useEffect(() => {
+    let active = true;
+    void searchParams.then((sp) => {
+      if (active) setQuery(sp);
+    });
+    return () => {
+      active = false;
+    };
+  }, [searchParams]);
+
   const [activePlan, setActivePlan] = useState<PlanKey>("pro");
+
+  // Apply the requested plan once it is known, and whenever it changes.
+  useEffect(() => {
+    if (isPlanKey(query.plan)) setActivePlan(query.plan);
+  }, [query.plan]);
 
   const plan = PLANS[activePlan];
 
   return (
     <div className="space-y-8">
+      <DashboardHeader
+        title="Plan comparison demo"
+        sub="See exactly what each plan includes, and what the workspace looks like on it."
+      />
+
+      <p className="rounded-xl border border-line bg-surface/60 px-4 py-3 font-mono text-[0.62rem] leading-relaxed text-mist-dim">
+        This is a plan walkthrough. The figures below illustrate each tier &mdash; they are sample values, not your
+        workspace&apos;s data. Your own dashboard shows only what has actually been tracked.
+      </p>
+
       {/* Plan Selector */}
       <div className="flex flex-wrap gap-3">
         {((["starter", "pro", "enterprise"]) as PlanKey[]).map((key) => {
@@ -159,7 +194,7 @@ export default function DemoPage() {
       </div>
 
       {/* Plan Overview */}
-      <Panel title={`${plan.icon} ${plan.name} Plan Demo`} sub={plan.blurb}>
+      <Panel title={`${plan.icon} ${plan.name} Plan Demo`} sub={plan.blurb} level={2}>
         <div className="grid gap-6 md:grid-cols-3 lg:grid-cols-4">
           {/* KPI Cards */}
           <div className="col-span-1 md:col-span-2 lg:col-span-2 space-y-4">
@@ -214,7 +249,7 @@ export default function DemoPage() {
       </Panel>
 
       {/* Navigation to actual dashboard pages */}
-      <Panel title="Try It Live" sub="Navigate to actual dashboard pages with demo data">
+      <Panel title="Try It Live" sub="Navigate to actual dashboard pages with demo data" level={2}>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { label: "Visibility Tracker", href: "/dashboard/visibility", icon: "📊", color: plan.color },

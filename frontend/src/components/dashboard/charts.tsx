@@ -70,8 +70,8 @@ export function AreaChart({
 
           {gridLines.map((g, i) => (
             <g key={i}>
-              <line x1={PAD.l} x2={W - PAD.r} y1={g.y} y2={g.y} stroke="rgba(255,255,255,0.06)" />
-              <text x={4} y={g.y + 3.5} fill="rgba(161,161,175,0.8)" fontSize="9" fontFamily="var(--font-geist-mono)">
+              <line x1={PAD.l} x2={W - PAD.r} y1={g.y} y2={g.y} stroke="var(--color-chart-grid)" />
+              <text x={4} y={g.y + 3.5} fill="var(--color-chart-axis)" fontSize="9" fontFamily="var(--font-geist-mono)">
                 {Math.round(g.v)}
                 {unit}
               </text>
@@ -92,11 +92,11 @@ export function AreaChart({
                 x2={x(hover)}
                 y1={PAD.t}
                 y2={H - PAD.b}
-                stroke="rgba(255,255,255,0.22)"
+                stroke="var(--color-chart-crosshair)"
                 strokeDasharray="3 3"
               />
               {visible.map((s) => (
-                <circle key={s.name} cx={x(hover)} cy={y(s.data[hover])} r="3" fill={s.color} stroke="#05050a" strokeWidth="1.5" />
+                <circle key={s.name} cx={x(hover)} cy={y(s.data[hover])} r="3" fill={s.color} stroke="var(--color-surface-solid)" strokeWidth="1.5" />
               ))}
             </g>
           )}
@@ -107,7 +107,7 @@ export function AreaChart({
               x={x(i)}
               y={H - 6}
               textAnchor={i === 0 ? "start" : i === labels.length - 1 ? "end" : "middle"}
-              fill="rgba(161,161,175,0.8)"
+              fill="var(--color-chart-axis)"
               fontSize="9"
               fontFamily="var(--font-geist-mono)"
             >
@@ -166,7 +166,7 @@ export function AreaChart({
   );
 }
 
-export function Sparkline({ data, color = "#a78bfa", className = "" }: { data: number[]; color?: string; className?: string }) {
+export function Sparkline({ data, color = "#8a93c8", className = "" }: { data: number[]; color?: string; className?: string }) {
   const max = Math.max(...data);
   const min = Math.min(...data);
   const range = max - min || 1;
@@ -246,13 +246,13 @@ export function DonutGauge({ value, label }: { value: number; label: string }) {
   return (
     <div className="relative mx-auto" style={{ width: size, height: size }}>
       <svg viewBox={`0 0 ${size} ${size}`} className="size-full -rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-chart-grid)" strokeWidth={stroke} />
         <circle
           cx={size / 2}
           cy={size / 2}
           r={r}
           fill="none"
-          stroke="#8b5cf6"
+          stroke="var(--color-iris)"
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={c}

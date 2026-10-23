@@ -1,10 +1,15 @@
-import { Panel } from "@/components/dashboard/panel";
+import { DashboardHeader, Panel } from "@/components/dashboard/panel";
 import { Button } from "@/components/ui/button";
 
 export default function GeoWriterPage() {
   return (
     <div className="space-y-6">
-      <Panel title="GEO Content Writer" sub="Drafts full GEO-optimized blogs and articles — citation-ready, structured, entity-rich">
+      <DashboardHeader
+        title="GEO Content Writer"
+        sub="Drafts full GEO-optimized blogs and articles — citation-ready, structured, entity-rich"
+      />
+
+      <Panel title="Choose a content type" sub="Each template produces a draft with sources attached." level={2}>
         <div className="space-y-4">
           <div className="flex items-center gap-4">
             <Button>Start Writing</Button>

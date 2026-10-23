@@ -33,14 +33,20 @@ export function ContactForm({ intent }: { intent: Intent }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...data, intent }),
       });
-      if (!res.ok) throw new Error("Request failed");
+
+      if (!res.ok) {
+        // The server rejected the request — show why instead of pretending
+        // it was received.
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error || "We could not send that. Please try again.");
+      }
+
       setStatus("sent");
-    } catch {
-      // Backend not wired yet — fall back to a local confirmation so the flow is testable.
-      setStatus("sent");
-      setError(null);
+      form.reset();
+    } catch (err) {
+      setStatus("idle");
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     }
-    form.reset();
   }
 
   if (status === "sent") {
@@ -126,7 +132,7 @@ export function ContactForm({ intent }: { intent: Intent }) {
       <button
         type="submit"
         disabled={status === "sending"}
-        className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-iris to-aqua px-6 py-3.5 text-base font-medium text-white shadow-[0_8px_40px_-8px_rgba(139,92,246,0.6)] transition-all hover:brightness-110 disabled:opacity-50 sm:w-auto"
+        className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-iris to-aqua px-6 py-3.5 text-base font-medium text-white shadow-[0_8px_40px_-8px_rgba(62,124,176,0.6)] transition-all hover:brightness-110 disabled:opacity-50 sm:w-auto"
       >
         {status === "sending" ? "Sending…" : "Send request"}
         {status !== "sending" && (

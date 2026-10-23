@@ -170,7 +170,7 @@ export default function BillingPage() {
           </table>
         </div>
 
-        <Panel title="Service Cost Reference" className="mt-6">
+        <Panel title="Service Cost Reference" className="mt-6" level={2}>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>

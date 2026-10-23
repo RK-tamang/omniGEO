@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCloudflareWorkersClient } from "@/server/services/cloudflare";
 import { getAuthUser } from "@/server/auth";
+import { backendEnabled, backendFetch } from "@/server/backend-client";
+import { getAuthUserWithBackendToken } from "@/server/auth-backend";
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,6 +26,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 1. Prefer the backend, which owns the deployment and its record of it.
+    if (backendEnabled()) {
+      const { backendToken } = await getAuthUserWithBackendToken();
+      const proxied = await backendFetch<{
+        success: boolean;
+        workerUrl?: string;
+        deployedSchemas?: string[];
+        error?: string;
+      }>("/api/schema/inject", {
+        body: { domain, schemas },
+        token: backendToken ?? undefined,
+      });
+
+      if (proxied.ok) {
+        return NextResponse.json({ ...proxied.data, source: "backend" });
+      }
+      if (proxied.status >= 400 && proxied.status < 500) {
+        return NextResponse.json({ error: proxied.error }, { status: proxied.status });
+      }
+    }
+
+    // 2. Local fallback — deploy the worker directly.
     const client = getCloudflareWorkersClient();
     const result = await client.injectSchemas({ domain, schemas });
 
@@ -32,6 +56,7 @@ export async function POST(request: NextRequest) {
       workerUrl: result.workerUrl,
       deployedSchemas: result.deployedSchemas,
       error: result.error,
+      source: "local",
     });
   } catch (error) {
     console.error("Schema Injection API error:", error);

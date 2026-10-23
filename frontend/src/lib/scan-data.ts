@@ -1,5 +1,9 @@
-// Deterministic mock scan reports — seeded by domain so every domain
-// gets its own stable-looking report. All data is illustrative.
+// Scan report shapes.
+//
+// A report is assembled from what the scan engine actually recorded: the
+// audit scan's checks and issues, the visibility scan's engine results, the
+// crawler's page summaries and the live robots.txt verdict. Nothing here is
+// generated — the helpers below only reshape real rows.
 
 export type ScanStatus = "cited" | "mentioned" | "missing";
 export type CheckStatus = "pass" | "warn" | "fail";
@@ -26,14 +30,21 @@ export type ScanReport = {
   score: number;
   pagesCrawled: number;
   duration: string;
+  ranAt: string | null;
+  simulated: boolean;
   breakdown: { label: string; value: number; note: string }[];
   engines: { name: string; status: ScanStatus; rate: number; color: string }[];
   promptSample: { prompt: string; statuses: Record<string, ScanStatus> }[];
   checks: { name: string; status: CheckStatus; detail: string }[];
   competitors: { name: string; mentionRate: number; you: boolean }[];
   recommendations: ScanFinding[];
+  /** The audit engine's own written summary of the site. */
+  summary: string | null;
+  /** robots.txt / sitemap.xml / llms.txt reachability. */
+  resources: { label: string; ok: boolean; detail: string }[];
   // tab: reading your pages
-  crawled: { headings: number; words: number; noAlt: number; links: number; homeTitle: string };
+  crawled: { words: number; title: string };
+  pages: { path: string; title: string; status: string; words: number; links: number }[];
   // tab: site health
   health: { healthy: number; fix: number; noAltPages: number; pages: { path: string; issue: string }[] };
   // tab: ai crawlers
@@ -43,232 +54,325 @@ export type ScanReport = {
   won: number;
 };
 
-function seedFrom(input: string) {
-  let h = 2166136261;
-  for (let i = 0; i < input.length; i++) {
-    h ^= input.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
+/* ------------------------------ engine payloads ----------------------------- */
+
+export type BackendScan = {
+  id: string;
+  type: string;
+  status: string;
+  score?: number | null;
+  input?: Record<string, any> | null;
+  result?: Record<string, any> | null;
+  checks?: Array<{ name: string; status: string; details: string }> | null;
+  pagesAnalyzed?: number | null;
+  issuesFound?: number | null;
+  startedAt?: string | number | null;
+  completedAt?: string | number | null;
+  createdAt?: string | number | null;
+};
+
+export type BackendIssue = {
+  severity: string;
+  title: string;
+  description: string;
+  fix: string;
+  pagesAffected?: number | null;
+  impact?: string | null;
+  effort?: string | null;
+};
+
+export type BackendPrompt = {
+  prompt: string;
+  engines?: Record<string, string> | null;
+};
+
+export type BotVerdict = {
+  bot: string;
+  owner: string;
+  purpose?: string;
+  status: "allowed" | "blocked" | "limited";
+  rule?: string | null;
+};
+
+const ENGINE_NAMES: Record<string, string> = {
+  chatgpt: "ChatGPT",
+  perplexity: "Perplexity",
+  gemini: "Gemini",
+  aio: "AI Overviews",
+};
+
+const ENGINE_COLORS: Record<string, string> = {
+  chatgpt: "#8a93c8",
+  perplexity: "#39a0a8",
+  gemini: "#5fb98a",
+  aio: "#d9a441",
+};
+
+const ENGINE_ORDER = ["chatgpt", "perplexity", "gemini", "aio"];
+
+/** Audit checks the engine runs, grouped into the categories we report on. */
+const CHECK_CATEGORIES: { category: string; names: string[] }[] = [
+  { category: "Infrastructure", names: ["HTTPS", "robots.txt", "sitemap.xml", "llms.txt"] },
+  {
+    category: "On-page",
+    names: [
+      "Title tag",
+      "Meta description",
+      "H1 heading",
+      "Canonical",
+      "Open Graph tags",
+      "HTML lang attribute",
+      "Content depth",
+    ],
+  },
+  { category: "Structured data", names: ["Structured data (JSON-LD)"] },
+  { category: "AI readiness", names: ["Question-form headings", "List formatting"] },
+];
+
+function toMillis(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number") return value;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? null : parsed;
 }
 
-function rng(seed: number) {
-  let s = seed;
-  return () => {
-    s |= 0;
-    s = (s + 0x6d2b79f5) | 0;
-    let t = Math.imul(s ^ (s >>> 15), 1 | s);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+function grade(score: number): string {
+  return score >= 85 ? "A" : score >= 72 ? "B" : score >= 58 ? "C" : score >= 45 ? "D" : "E";
 }
 
-const clamp = (n: number, min = 0, max = 100) => Math.min(max, Math.max(min, Math.round(n)));
+function toStatus(value: unknown): ScanStatus {
+  return value === "cited" || value === "mentioned" ? value : "missing";
+}
 
-export function buildScanReport(domain: string, scanId: string): ScanReport {
-  const clean = domain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "") || "northwindlabs.com";
-  const rand = rng(seedFrom(clean));
+/**
+ * Assemble a report from the rows the engine recorded.
+ *
+ * `scans` are the workspace's scans for this run — the audit scan drives the
+ * health panel, the visibility scan drives the answers panel, and the crawler
+ * scan supplies the page sample.
+ */
+export function buildScanReport(input: {
+  domain: string;
+  scanId: string;
+  scans: BackendScan[];
+  issues: BackendIssue[];
+  prompts: BackendPrompt[];
+  bots: BotVerdict[];
+}): ScanReport {
+  const { domain, scanId, scans, issues, prompts, bots } = input;
 
-  const breakdown = [
-    { label: "Retrieval access", note: "Can AI crawlers read your site?" },
-    { label: "Entity clarity", note: "Is who-you-are unambiguous?" },
-    { label: "Citation presence", note: "Do answers cite your domain?" },
-    { label: "Content structure", note: "Can claims be lifted cleanly?" },
-    { label: "Corroboration", note: "Do other sources repeat you?" },
-  ].map((b) => ({ ...b, value: clamp(38 + rand() * 55) }));
+  const audit = scans.find((s) => s.type === "audit" && s.status === "completed");
+  const visibility = scans.find((s) => s.type === "visibility" && s.status === "completed");
+  const crawler = scans.find((s) => s.type === "crawler" && s.status === "completed");
 
-  const score = clamp(breakdown.reduce((s, b) => s + b.value, 0) / breakdown.length + (rand() * 6 - 3));
-  const grade = score >= 85 ? "A" : score >= 72 ? "B" : score >= 58 ? "C" : score >= 45 ? "D" : "E";
+  const checks = (audit?.checks ?? []).map((c) => ({
+    name: c.name,
+    status: (c.status === "pass" || c.status === "warn" || c.status === "fail" ? c.status : "warn") as CheckStatus,
+    detail: c.details ?? "",
+  }));
 
-  const engineDefs = [
-    { name: "ChatGPT", color: "#a78bfa" },
-    { name: "Perplexity", color: "#22d3ee" },
-    { name: "Gemini", color: "#34d399" },
-    { name: "AI Overviews", color: "#fbbf24" },
-  ];
-  const engines = engineDefs.map((e) => {
-    const roll = rand();
-    const status: ScanStatus = roll > 0.55 ? "cited" : roll > 0.25 ? "mentioned" : "missing";
-    return { ...e, status, rate: status === "cited" ? 22 + Math.round(rand() * 24) : status === "mentioned" ? 8 + Math.round(rand() * 12) : Math.round(rand() * 4) };
+  const breakdown = CHECK_CATEGORIES.map(({ category, names }) => {
+    const group = checks.filter((c) => names.includes(c.name));
+    const passed = group.filter((c) => c.status === "pass").length;
+    return {
+      label: category,
+      value: group.length ? Math.round((passed / group.length) * 100) : 0,
+      note: group.length ? `${passed} of ${group.length} checks passed` : "not covered by this audit",
+    };
+  }).filter((b) => b.note !== "not covered by this audit");
+
+  const recommendations: ScanFinding[] = issues.map((i) => ({
+    title: i.title,
+    severity: (i.severity === "Critical" || i.severity === "Warning" ? i.severity : "Notice") as ScanSeverity,
+    pages: i.pagesAffected ?? 0,
+    impact: (i.impact === "High" || i.impact === "Medium" || i.impact === "Low" ? i.impact : "Medium") as ScanFinding["impact"],
+    effort: (i.effort === "Low" || i.effort === "Medium" || i.effort === "High" ? i.effort : "Medium") as ScanFinding["effort"],
+    detail: i.description,
+    fix: i.fix,
+  }));
+
+  const engineRows = ((visibility?.result?.engines ?? []) as Array<{
+    engine?: string;
+    score?: number;
+    cited?: number;
+    mentioned?: number;
+    missing?: number;
+    topCitations?: string[];
+  }>).filter((e) => typeof e?.engine === "string");
+
+  const engines = ENGINE_ORDER.filter((key) => engineRows.some((e) => e.engine === key)).map((key) => {
+    const row = engineRows.find((e) => e.engine === key)!;
+    const status: ScanStatus =
+      (row.cited ?? 0) > 0 ? "cited" : (row.mentioned ?? 0) > 0 ? "mentioned" : "missing";
+    return {
+      name: ENGINE_NAMES[key] ?? key,
+      status,
+      rate: row.score ?? 0,
+      color: ENGINE_COLORS[key] ?? "#8a93c8",
+    };
   });
 
-  const promptPool = [
-    "best tools in this category",
-    `${clean.split(".")[0]} alternatives`,
-    "how to choose a vendor for this",
-    "who leads this category in 2026",
-    "affordable options for small teams",
-    "is this worth it for an agency",
-    "compare the top three vendors",
-    "who do teams actually recommend",
-  ];
-  const promptSample = promptPool.map((prompt) => {
-    const statuses: Record<string, ScanStatus> = {};
-    for (const e of engineDefs) {
-      const roll = rand();
-      statuses[e.name] = roll > 0.6 ? "cited" : roll > 0.3 ? "mentioned" : "missing";
-    }
-    return { prompt, statuses };
-  });
-
-  const checks: { name: string; status: CheckStatus; detail: string }[] = [
-    {
-      name: "robots.txt allows AI crawlers",
-      status: rand() > 0.5 ? "pass" : "fail",
-      detail: "GPTBot, OAI-SearchBot, PerplexityBot and Google-Extended rules",
-    },
-    { name: "Sitemap reachable", status: "pass", detail: "Declared in robots.txt and returns 200" },
-    {
-      name: "Organization schema",
-      status: rand() > 0.4 ? "warn" : "fail",
-      detail: "JSON-LD with name, logo and sameAs on the homepage",
-    },
-    { name: "Named authors on content", status: rand() > 0.5 ? "warn" : "fail", detail: "Person markup on articles and guides" },
-    { name: "HTTPS + canonical tags", status: "pass", detail: "Valid TLS and self-referencing canonicals" },
-    {
-      name: "Answers structured for lifting",
-      status: rand() > 0.5 ? "warn" : "pass",
-      detail: "Direct 40–60 word answers under question headings",
-    },
-  ].map((c) => ({ ...c, status: c.status as CheckStatus }));
-
-  const yourRate = engines.reduce((s, e) => s + e.rate, 0) / engines.length;
-  const competitors = [
-    { name: clean.split(".")[0] + " (you)", mentionRate: clamp(yourRate), you: true },
-    { name: "Competitor A", mentionRate: clamp(yourRate + 12 + rand() * 14), you: false },
-    { name: "Competitor B", mentionRate: clamp(yourRate + 4 + rand() * 10), you: false },
-    { name: "Competitor C", mentionRate: clamp(6 + rand() * 12), you: false },
-  ].sort((a, b) => b.mentionRate - a.mentionRate);
-
-  const recommendations: ScanReport["recommendations"] = [
-    {
-      title: "AI search crawlers blocked in robots.txt",
-      severity: "Critical" as const,
-      pages: 4 + Math.round(rand() * 18),
-      impact: "High" as const,
-      effort: "Low" as const,
-      detail:
-        "A wildcard rule is currently excluding the bots that power ChatGPT and Perplexity answers, so these pages can never be retrieved or cited.",
-      fix: "Add explicit Allow rules for GPTBot, OAI-SearchBot and PerplexityBot above the wildcard block, then re-run the crawler check.",
-    },
-    {
-      title: "No Organization schema on the homepage",
-      severity: "Critical" as const,
-      pages: 1,
-      impact: "High" as const,
-      effort: "Low" as const,
-      detail:
-        "Models resolve your entity from structured data. Without it they infer your brand from surrounding copy — often from a competitor's comparison page instead.",
-      fix: "Ship JSON-LD Organization with name, url, logo, sameAs and foundingDate, and reference it from every page.",
-    },
-    {
-      title: "Comparison pages win no prompts",
-      severity: "Warning" as const,
-      pages: 3 + Math.round(rand() * 6),
-      impact: "Medium" as const,
-      effort: "Medium" as const,
-      detail:
-        "The prompts you are missing are all comparisons and shortlists — the questions buyers read immediately before choosing.",
-      fix: "Publish one well-corroborated comparison page per rival, citing a named source and stating a clear, defensible claim.",
-    },
-    {
-      title: "FAQ answers too long to be quoted",
-      severity: "Warning" as const,
-      pages: 4 + Math.round(rand() * 8),
-      impact: "Medium" as const,
-      effort: "Low" as const,
-      detail: "Answers that run past ~400 words are rarely lifted verbatim. Models prefer one crisp, self-contained paragraph.",
-      fix: "Lead every question heading with a direct 40–60 word answer, then add the nuance below it.",
-    },
-    {
-      title: "Thin internal links to conversion pages",
-      severity: "Notice" as const,
-      pages: 6 + Math.round(rand() * 10),
-      impact: "Low" as const,
-      effort: "Low" as const,
-      detail: "Sparse internal linking weakens the path from the informational pages that get cited to the pages that convert.",
-      fix: "Add at least five contextual links per page, including one to your pricing or comparison page.",
-    },
-  ].sort(() => rand() - 0.5);
-
-  // ---- tab data --------------------------------------------------------------
-  const pagesCrawled = 18 + Math.round(rand() * 40);
-
-  const crawled = {
-    headings: 14 + Math.round(rand() * 38),
-    words: 420 + Math.round(rand() * 1180),
-    noAlt: Math.round(rand() * 11),
-    links: 24 + Math.round(rand() * 74),
-    homeTitle: `${clean.split(".")[0].replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} — official site`,
-  };
-
-  const healthyPct = 40 + Math.round(rand() * 35);
-  const issuePool = [
-    { path: "/", issue: "no Organization schema" },
-    { path: "/pricing", issue: "meta description missing" },
-    { path: "/resources/*", issue: "blocked to AI crawlers" },
-    { path: "/blog/guide", issue: "no named author" },
-    { path: "/compare", issue: "answer over 400 words" },
-    { path: "/docs", issue: "canonical mismatch" },
-  ];
-  const health = {
-    healthy: healthyPct,
-    fix: Math.max(6, 74 - healthyPct),
-    noAltPages: 2 + Math.round(rand() * 6),
-    pages: [...issuePool].sort(() => rand() - 0.5).slice(0, 4),
-  };
-
-  const botDefs = [
-    { name: "GPTBot", owner: "OpenAI · training" },
-    { name: "OAI-SearchBot", owner: "OpenAI · search" },
-    { name: "PerplexityBot", owner: "Perplexity · answers" },
-    { name: "ClaudeBot", owner: "Anthropic · training" },
-    { name: "Google-Extended", owner: "Google · Gemini" },
-    { name: "Bingbot", owner: "Microsoft · Copilot" },
-  ];
-  const bots = botDefs.map((b, i) => {
-    const roll = rand();
-    let status: "allowed" | "blocked" | "limited";
-    if (i === 0) status = roll > 0.35 ? "blocked" : "allowed";
-    else if (i === 3) status = roll > 0.5 ? "limited" : "allowed";
-    else status = roll > 0.12 ? "allowed" : "blocked";
-    return { ...b, status };
-  });
-
-  const yourHost = clean.replace(/^www\./, "");
-  const rivalHost = `competitor-${["a", "b", "c"][Math.floor(rand() * 3)]}.com`;
-  // choose a prompt from the first five (the rows the answers panel renders) whose
-  // ChatGPT status matches the mock answer, so table and chat mock tell one story
-  const citedRow = promptSample.slice(0, 5).find((p) => p.statuses["ChatGPT"] === "cited");
-  const missingRow = promptSample.slice(0, 5).find((p) => p.statuses["ChatGPT"] === "missing");
-  const answerCitesYou = citedRow ? (missingRow ? rand() > 0.55 : true) : false;
-  const answerPrompt = ((answerCitesYou ? citedRow : missingRow) ?? promptSample[0]).prompt;
-  const cited = answerCitesYou ? [yourHost, rivalHost] : [rivalHost, "industry-review.example"];
-  const answer = {
-    prompt: answerPrompt,
-    text: `The most recommended option right now is ${cited[0]}, especially for teams that need reliable reporting and clear sources. ${cited[1]} also comes up often in comparisons for smaller budgets.`,
-    citesYou: answerCitesYou,
-    cited,
-  };
+  const promptSample = prompts
+    .filter((p) => p.engines && Object.keys(p.engines).length > 0)
+    .slice(0, 8)
+    .map((p) => ({
+      prompt: p.prompt,
+      statuses: Object.fromEntries(
+        ENGINE_ORDER.map((key) => [ENGINE_NAMES[key] ?? key, toStatus(p.engines?.[key])]),
+      ) as Record<string, ScanStatus>,
+    }));
 
   const won = promptSample.filter((p) => Object.values(p.statuses).filter((s) => s === "cited").length >= 2).length;
 
+  // The domains the engines cited — the real competitive set for this scan.
+  const citedDomains = new Map<string, number>();
+  for (const engine of engineRows) {
+    for (const url of engine.topCitations ?? []) {
+      try {
+        const host = new URL(url).hostname.replace(/^www\./, "");
+        if (host) citedDomains.set(host, (citedDomains.get(host) ?? 0) + 1);
+      } catch {
+        // Ignore URLs the provider reported in an unparseable form.
+      }
+    }
+  }
+  const totalCitations = [...citedDomains.values()].reduce((a, b) => a + b, 0);
+  const competitors = [...citedDomains.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([name, count]) => ({
+      name,
+      mentionRate: totalCitations ? Math.round((count / totalCitations) * 100) : 0,
+      you: false,
+    }));
+
+  const metrics = (audit?.result?.metrics ?? {}) as {
+    words?: number;
+    headings?: number;
+    links?: number;
+  };
+  const crawlSummaries = ((crawler?.result?.crawls ?? []) as Array<{
+    url?: string;
+    success?: boolean;
+    title?: string;
+    wordCount?: number;
+    linkCount?: number;
+    error?: string;
+  }>).filter(Boolean);
+
+  // The audit scan records the pages it read; the crawler scan records the
+  // same pages with their link counts. Merge both into one sample.
+  const auditPages = ((audit?.result?.pages ?? []) as Array<{
+    url?: string;
+    title?: string;
+    wordCount?: number;
+  }>).filter(Boolean);
+
+  const pages = auditPages.map((p) => {
+    let path = p.url ?? "";
+    try {
+      const u = new URL(path);
+      path = u.pathname + u.search;
+    } catch {
+      // Keep the raw URL when it cannot be parsed.
+    }
+    const crawled = crawlSummaries.find((c) => c.url === p.url);
+    return {
+      path,
+      title: p.title ?? crawled?.title ?? "",
+      status: crawled ? (crawled.success ? "200" : "failed") : "read",
+      words: p.wordCount ?? crawled?.wordCount ?? 0,
+      links: crawled?.linkCount ?? 0,
+    };
+  });
+
+  const homeTitle =
+    pages.find((p) => p.path === "/")?.title ||
+    pages[0]?.title ||
+    ((audit?.result?.headings ?? []) as string[])[0] ||
+    domain;
+
+  const totalWords = pages.reduce((s, p) => s + p.words, 0);
+
+  const crawled = {
+    words: totalWords || metrics.words || 0,
+    title: homeTitle,
+  };
+
+  const resources = [
+    { key: "robots", label: "robots.txt" },
+    { key: "sitemap", label: "sitemap.xml" },
+    { key: "llmsTxt", label: "llms.txt" },
+  ].map((r) => {
+    const entry = (audit?.result?.resources ?? {}) as Record<string, { ok?: boolean; status?: number }>;
+    const value = entry[r.key];
+    return {
+      label: r.label,
+      ok: Boolean(value?.ok),
+      detail: value?.ok ? "reachable" : value?.status ? `HTTP ${value.status}` : "not found",
+    };
+  });
+
+  const passCount = checks.filter((c) => c.status === "pass").length;
+  const health = {
+    healthy: checks.length ? Math.round((passCount / checks.length) * 100) : 0,
+    fix: checks.length ? 100 - Math.round((passCount / checks.length) * 100) : 0,
+    noAltPages: 0,
+    pages: recommendations.slice(0, 4).map((r) => ({ path: r.title, issue: r.severity })),
+  };
+
+  const score =
+    typeof visibility?.score === "number"
+      ? visibility.score
+      : typeof audit?.score === "number"
+        ? audit.score
+        : 0;
+
+  const started = toMillis(visibility?.startedAt ?? audit?.startedAt ?? visibility?.createdAt);
+  const completed = toMillis(visibility?.completedAt ?? audit?.completedAt ?? visibility?.createdAt);
+  const duration =
+    started !== null && completed !== null && completed >= started
+      ? `${Math.max(1, Math.round((completed - started) / 1000))}s`
+      : "—";
+
+  const topCitations = engineRows.flatMap((e) => e.topCitations ?? []);
+  const answer = {
+    prompt: promptSample[0]?.prompt ?? "",
+    text:
+      visibility?.result?.promptsTested
+        ? `${visibility.result.promptsTested} prompts were run against ${engineRows.length} engines during this scan.`
+        : "",
+    citesYou: topCitations.some((u) => u.includes(domain)),
+    cited: [...new Set(topCitations)].slice(0, 8).map((u) => {
+      try {
+        return new URL(u).hostname.replace(/^www\./, "");
+      } catch {
+        return u;
+      }
+    }),
+  };
+
   return {
-    domain: clean,
+    domain,
     scanId,
-    grade,
+    grade: grade(score),
     score,
-    pagesCrawled,
-    duration: `${28 + Math.round(rand() * 24)}s`,
+    pagesCrawled: audit?.pagesAnalyzed ?? pages.length,
+    duration,
+    ranAt: completed !== null ? new Date(completed).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : null,
+    simulated: Boolean(visibility?.result?.simulated) || Boolean(audit?.result?.summarySimulated),
     breakdown,
     engines,
     promptSample,
     checks,
     competitors,
     recommendations,
+    summary: typeof audit?.result?.summary === "string" ? audit.result.summary : null,
+    resources,
     crawled,
+    pages,
     health,
-    bots,
+    bots: bots.map((b) => ({ name: b.bot, owner: b.owner, status: b.status })),
     answer,
     won,
   };
@@ -276,9 +380,8 @@ export function buildScanReport(domain: string, scanId: string): ScanReport {
 
 export const SCAN_STEPS = [
   "Resolving domain and fetching the homepage",
-  "Reading robots.txt and sitemap",
-  "Checking AI crawler access (GPTBot, PerplexityBot, Google-Extended)",
-  "Probing entity clarity and structured data",
+  "Reading robots.txt, sitemap and llms.txt",
+  "Checking on-page structure and structured data",
   "Running sample prompts across four engines",
-  "Comparing against three competitors",
+  "Recording citations and share of voice",
 ];

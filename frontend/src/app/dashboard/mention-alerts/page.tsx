@@ -1,7 +1,27 @@
+"use client";
+
 import { Panel } from "@/components/dashboard/panel";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useWorkspaceData } from "@/hooks/use-workspace-data";
 
 export default function MentionAlertsPage() {
+  const { data } = useWorkspaceData();
+
+  const alerts = (data?.alerts ?? []).filter(
+    (a) => a.type === "citation_lost" || a.type === "citation_gained" || a.type === "visibility_drop",
+  );
+
+  const tone = (severity: string) =>
+    severity === "Critical" ? "border-coral" : severity === "Warning" ? "border-gold" : "border-iris";
+
+  const chip = (severity: string) =>
+    severity === "Critical"
+      ? "bg-coral/15 text-coral border-coral/30"
+      : severity === "Warning"
+        ? "bg-gold/15 text-gold border-gold/30"
+        : "bg-iris/15 text-iris border-iris/30";
+
   return (
     <div className="space-y-6">
       <Panel title="Brand Mention Alerts" sub="Real-time alerts when your brand is mentioned (or stops being mentioned) in AI answers">
@@ -10,29 +30,36 @@ export default function MentionAlertsPage() {
             <Button>Create Alert</Button>
             <Button variant="secondary">Manage Rules</Button>
           </div>
-          <div className="space-y-3">
-            <div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-4 border-l-4 border-iris flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[0.5rem] uppercase tracking-widest bg-mint/15 text-mint border-mint/30">Active</span>
-                <span className="font-medium text-chalk">New mention: &ldquo;Northwind Labs&rdquo; in ChatGPT</span>
-              </div>
-              <span className="text-xs text-mist-dim">2 min ago</span>
+
+          {alerts.length === 0 ? (
+            <EmptyState
+              title="No mention alerts"
+              sub="An alert fires when a mention is gained or lost, or when your visibility drops. Every one raised for this workspace is listed here."
+            />
+          ) : (
+            <div className="space-y-3">
+              {alerts.map((a) => (
+                <div
+                  key={a.id}
+                  className={`bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-4 border-l-4 ${tone(a.severity)} flex items-center justify-between`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[0.5rem] uppercase tracking-widest ${chip(a.severity)}`}
+                    >
+                      {a.severity}
+                    </span>
+                    <span className="font-medium text-chalk">{a.title}</span>
+                  </div>
+                  <span className="text-xs text-mist-dim">
+                    {a.createdAt
+                      ? new Date(a.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+                      : "recently"}
+                  </span>
+                </div>
+              ))}
             </div>
-            <div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-4 border-l-4 border-gold flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[0.5rem] uppercase tracking-widest bg-gold/15 text-gold border-gold/30">Active</span>
-                <span className="font-medium text-chalk">Mention lost: &ldquo;Northwind Labs&rdquo; dropped from Perplexity answer</span>
-              </div>
-              <span className="text-xs text-mist-dim">15 min ago</span>
-            </div>
-            <div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-4 border-l-4 border-coral flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[0.5rem] uppercase tracking-widest bg-coral/15 text-coral border-coral/30">Critical</span>
-                <span className="font-medium text-chalk">Sentiment shift: Negative mentions up 40% for &ldquo;CRM pricing&rdquo;</span>
-              </div>
-              <span className="text-xs text-mist-dim">1 hour ago</span>
-            </div>
-          </div>
+          )}
         </div>
       </Panel>
     </div>

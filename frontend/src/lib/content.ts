@@ -355,33 +355,6 @@ export const planComparison: { group: string; rows: { label: string; values: str
   },
 ];
 
-export const testimonials = [
-  {
-    quote:
-      "We had no idea we were invisible in AI answers. OmniGEO showed us the exact questions our buyers were asking, how rarely we came up, and what to publish about it. We are now being cited in answers we had never appeared in.",
-    name: "Priya Menon",
-    role: "Head of Growth",
-    company: "Northwind Labs",
-    metric: { value: "12 weeks", label: "from invisible to cited" },
-  },
-  {
-    quote:
-      "Every AI writing tool we tried invented things — plausible sentences about our own products that were simply not true. OmniGEO writes from the material we give it and shows where each claim came from. Review stopped being a rewrite and became a check.",
-    name: "Daniel Okafor",
-    role: "Marketing Lead",
-    company: "Kestrel Systems",
-    metric: { value: "70%", label: "less time to publish" },
-  },
-  {
-    quote:
-      "We were paying for four different tools and still guessing about what to publish next. OmniGEO replaced most of that stack and, more usefully, told us what to do rather than handing us more dashboards. The difference showed up in pipeline, not just rankings.",
-    name: "Sofia Reyes",
-    role: "Director of Marketing",
-    company: "Brightline Commerce",
-    metric: { value: "2.4×", label: "qualified inbound in 2 quarters" },
-  },
-] as const;
-
 export const homeFaqs = [
   {
     q: "What is generative engine optimisation (GEO)?",

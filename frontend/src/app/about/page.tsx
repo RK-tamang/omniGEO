@@ -30,19 +30,10 @@ const principles = [
   },
 ];
 
-const team = [
-  { name: "Advik Sharma", role: "Co-founder, Product" },
-  { name: "Udayan Verma", role: "Co-founder, Engineering" },
-  { name: "Meera Iyer", role: "Head of Design" },
-  { name: "Jonas Lindqvist", role: "ML Lead" },
-  { name: "Aisha Bello", role: "Customer Success" },
-  { name: "Tomás Herrera", role: "Growth" },
-];
-
-const stats = [
-  { value: "5,700+", label: "teams onboard" },
-  { value: "11,400+", label: "brands tracked" },
-  { value: "18", label: "countries" },
+const focus = [
+  { value: "4", label: "answer engines tracked" },
+  { value: "1", label: "workspace, one source of truth" },
+  { value: "75", label: "tools in the suite" },
   { value: "2023", label: "founded" },
 ];
 
@@ -73,7 +64,7 @@ export default function AboutPage() {
           </div>
 
           <div className="mt-16 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-line bg-line lg:grid-cols-4">
-            {stats.map((s) => (
+            {focus.map((s) => (
               <div key={s.label} className="bg-ink-950 px-6 py-8">
                 <div className="font-display text-4xl text-gradient">{s.value}</div>
                 <div className="mt-1.5 font-mono text-[0.65rem] uppercase tracking-widest text-mist-dim">{s.label}</div>
@@ -106,28 +97,22 @@ export default function AboutPage() {
         <div className="container-page">
           <Reveal>
             <SectionHeading
-              kicker="Team"
-              title="Small team, one obsession"
-              sub="Distributed across Bengaluru, Lisbon and Stockholm."
+              kicker="What we work on"
+              title="One platform, four layers"
+              sub="Every part of OmniGEO is built around the same workspace, so the answers line up."
             />
           </Reveal>
-          <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {team.map((m, i) => (
+          <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { name: "Visibility tracking", role: "Prompts, mentions and citations across four engines" },
+              { name: "Site audit", role: "Crawlability, on-page structure and AI readiness" },
+              { name: "Content studio", role: "Drafts scored for citation-readiness, sources linked" },
+              { name: "Reporting", role: "Alerts, digests and exports on the same tracked data" },
+            ].map((m, i) => (
               <Reveal key={m.name} delay={i * 60}>
-                <div className="glass glass-hover flex items-center gap-4 rounded-2xl p-6">
-                  <span
-                    className="flex size-12 shrink-0 items-center justify-center rounded-full border border-line bg-gradient-to-br from-iris/30 to-aqua/20 font-medium text-chalk"
-                    aria-hidden
-                  >
-                    {m.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  </span>
-                  <div>
-                    <div className="text-sm font-medium text-chalk">{m.name}</div>
-                    <div className="text-xs text-mist-dim">{m.role}</div>
-                  </div>
+                <div className="glass glass-hover flex h-full flex-col rounded-2xl p-6">
+                  <div className="text-sm font-medium text-chalk">{m.name}</div>
+                  <div className="mt-2 text-xs leading-relaxed text-mist-dim">{m.role}</div>
                 </div>
               </Reveal>
             ))}

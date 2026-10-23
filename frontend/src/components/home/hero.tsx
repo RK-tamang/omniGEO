@@ -43,11 +43,11 @@ export function Hero() {
             <p className="mt-6 font-mono text-xs tracking-wide text-mist-dim">{site.trialNote}</p>
 
             <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-3 border-t border-line pt-6">
-              <Metric value="11,400+" label="brands tracked" />
+              <Metric value="4" label="answer engines tracked" />
               <span className="h-8 w-px bg-line" aria-hidden />
-              <Metric value="5,700+" label="teams onboard" />
+              <Metric value="75" label="tools in one workspace" />
               <span className="hidden h-8 w-px bg-line sm:block" aria-hidden />
-              <Metric value="18" label="countries" />
+              <Metric value="1" label="source of truth" />
             </div>
           </div>
 

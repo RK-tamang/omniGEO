@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth-session";
-import { getSettings } from "./db";
+import { resolveSettings } from "./settings";
 
 export interface AuthUser {
   id: string;
@@ -28,7 +28,7 @@ export async function getAuthUser(request: Request): Promise<AuthUser | null> {
     if (!session) return null;
 
     // Workspace settings supply the display plan/name for legacy local users.
-    const settings = getSettings();
+    const settings = await resolveSettings(session);
 
     return {
       id: session.userId ?? session.email,

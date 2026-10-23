@@ -91,7 +91,7 @@ export function ScanTabs({
                 onClick={() => setActive(i)}
                 className={`min-w-[9rem] rounded-xl border px-4 py-2.5 text-left transition-colors lg:min-w-0 lg:w-full ${
                   selected
-                    ? "border-iris/55 bg-iris/10 shadow-[inset_0_0_0_1px_rgba(139,92,246,0.25)]"
+                    ? "border-iris/55 bg-iris/10 shadow-[inset_0_0_0_1px_rgba(62,124,176,0.25)]"
                     : "border-line bg-surface-1 hover:border-line-strong hover:bg-surface-2"
                 }`}
               >
@@ -143,7 +143,7 @@ export function ScanTabs({
 
 function SignupGate() {
   return (
-    <div className="glass-strong w-full max-w-md rounded-2xl border border-iris/30 p-7 text-center shadow-[0_24px_80px_-20px_rgba(5,5,10,0.9)]">
+    <div className="glass-strong w-full max-w-md rounded-2xl border border-iris/30 p-7 text-center shadow-[0_24px_80px_-20px_rgba(6,20,27,0.9)]">
       <span className="mx-auto flex size-11 items-center justify-center rounded-xl border border-iris/40 bg-iris/10 text-iris">
         <svg width="18" height="18" viewBox="0 0 12 12" fill="none" aria-hidden>
           <rect x="2" y="5" width="8" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.1" />

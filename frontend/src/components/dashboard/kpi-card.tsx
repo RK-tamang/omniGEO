@@ -38,9 +38,11 @@ export function KpiCard({
       <p className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-mist-dim">{label}</p>
       <div className="mt-3 flex items-end justify-between gap-3">
         <span className="font-display text-4xl font-normal italic leading-none text-chalk">{value}</span>
-        {spark && <Sparkline data={spark} color={color ?? "#a78bfa"} className="h-7 w-24" />}
+        {spark && (
+          <Sparkline data={spark} color={color ?? "#8a93c8"} className="hidden h-7 w-24 @2xl:block" />
+        )}
       </div>
-      <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-3">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-line pt-3">
         <Delta delta={delta} unit={unit} invert={invert} />
         <span className="text-right text-[0.68rem] text-mist-dim">{hint}</span>
       </div>

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { crawlerBots, type BotStatus, type CrawlerBot } from "@/lib/dashboard-data";
+import { useCallback, useEffect, useState } from "react";
+import { EmptyState } from "@/components/ui/empty-state";
+import type { BotStatus, CrawlerBot } from "@/lib/dashboard-config";
 
 const statusStyles: Record<BotStatus, string> = {
   allowed: "border-mint/40 bg-mint/10 text-mint",
@@ -12,21 +13,63 @@ const statusStyles: Record<BotStatus, string> = {
 const statusLabel: Record<BotStatus, string> = {
   allowed: "Allowed",
   blocked: "Blocked",
-  limited: "Rate-limited",
+  limited: "Partly blocked",
 };
 
-export function CrawlerBots() {
-  const [bots, setBots] = useState<CrawlerBot[]>(crawlerBots);
-  const [state, setState] = useState<"idle" | "checking" | "done">("idle");
+type State = "loading" | "idle" | "checking" | "done" | "error";
 
-  function recheck() {
-    if (state === "checking") return;
+export function CrawlerBots({ bots: initial, domain }: { bots?: CrawlerBot[]; domain?: string }) {
+  const [bots, setBots] = useState<CrawlerBot[]>(initial ?? []);
+  const [state, setState] = useState<State>(initial ? "idle" : "loading");
+
+  const recheck = useCallback(async () => {
     setState("checking");
-    window.setTimeout(() => {
-      setBots((prev) => prev.map((b) => ({ ...b, lastChecked: "just now" })));
+    try {
+      const res = await fetch("/api/crawler/robots", { cache: "no-store" });
+      const body = await res.json();
+      if (!res.ok || !Array.isArray(body?.bots)) throw new Error(body?.error ?? "Check failed");
+      setBots(
+        body.bots.map((b: { bot: string; owner: string; purpose: string; status: BotStatus }) => ({
+          bot: b.bot,
+          owner: b.owner,
+          purpose: b.purpose,
+          status: b.status,
+          lastChecked: "just now",
+        })),
+      );
       setState("done");
       window.setTimeout(() => setState("idle"), 3000);
-    }, 1400);
+    } catch {
+      setState("error");
+      window.setTimeout(() => setState("idle"), 4000);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!initial) void recheck();
+  }, [initial, recheck]);
+
+  if (state === "loading") {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-32 animate-pulse rounded-xl border border-line bg-surface-1" />
+        ))}
+      </div>
+    );
+  }
+
+  if (bots.length === 0) {
+    return (
+      <EmptyState
+        title="No crawler data yet"
+        sub={
+          domain
+            ? `We could not read ${domain}/robots.txt yet. Set a domain on the workspace and run the check again.`
+            : "Set a domain on the workspace and the check will read its real robots.txt."
+        }
+      />
+    );
   }
 
   const blocked = bots.filter((b) => b.status !== "allowed").length;
@@ -39,7 +82,7 @@ export function CrawlerBots() {
             <span className="text-mint">Every tracked engine can read this site.</span>
           ) : (
             <>
-              <span className="text-coral">{blocked} of {bots.length} bots are blocked or limited</span>{" "}
+              <span className="text-coral">{blocked} of {bots.length} bots are blocked or partly blocked</span>{" "}
               <span className="text-mist-dim">— including an engine that answers buyers directly.</span>
             </>
           )}
@@ -50,7 +93,13 @@ export function CrawlerBots() {
           disabled={state === "checking"}
           className="shrink-0 rounded-full border border-line px-4 py-1.5 font-mono text-[0.62rem] uppercase tracking-widest text-mist transition-colors hover:border-line-strong hover:text-chalk disabled:opacity-60"
         >
-          {state === "checking" ? "Checking…" : state === "done" ? "✓ Checked" : "Re-run checks"}
+          {state === "checking"
+            ? "Checking…"
+            : state === "done"
+              ? "✓ Checked"
+              : state === "error"
+                ? "Check failed"
+                : "Re-run checks"}
         </button>
       </div>
 
@@ -76,8 +125,7 @@ export function CrawlerBots() {
                 <div>
                   <p className="text-sm font-medium text-chalk">{b.bot}</p>
                   <p className="font-mono text-[0.55rem] uppercase tracking-widest text-mist-dim">{b.owner}</p>
-                </div>
-              </div>
+                </div>              </div>
               <span
                 className={`shrink-0 rounded-full border px-2 py-0.5 font-mono text-[0.55rem] uppercase tracking-widest ${statusStyles[b.status]}`}
               >
@@ -85,6 +133,9 @@ export function CrawlerBots() {
               </span>
             </div>
             <p className="mt-3 text-xs leading-relaxed text-mist">{b.purpose}</p>
+            {b.rule ? (
+              <p className="mt-2 font-mono text-[0.58rem] text-mist-dim">rule: {b.rule}</p>
+            ) : null}
             <p className="mt-2 border-t border-line pt-2 font-mono text-[0.55rem] text-mist-dim">
               checked {state === "checking" ? "…" : b.lastChecked}
             </p>

@@ -1,7 +1,25 @@
+"use client";
+
 import { Panel } from "@/components/dashboard/panel";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useWorkspaceData } from "@/hooks/use-workspace-data";
+import { mergeContentItems } from "@/lib/workspace-data";
 
 export default function ReadabilityPage() {
+  const { data } = useWorkspaceData();
+  const items = mergeContentItems(data);
+
+  const avg = items.length ? Math.round(items.reduce((s, c) => s + c.score, 0) / items.length) : 0;
+  const ready = items.filter((c) => c.score >= 80).length;
+
+  const tiles = [
+    { label: "Avg Readability", value: items.length ? `${avg}/100` : "—", tone: "text-chalk" },
+    { label: "Pieces Analyzed", value: `${items.length}`, tone: "text-chalk" },
+    { label: "Pass Rate", value: items.length ? `${Math.round((items.filter((c) => c.score >= 60).length / items.length) * 100)}%` : "—", tone: "text-chalk" },
+    { label: "Citation-Ready", value: items.length ? `${Math.round((ready / items.length) * 100)}%` : "—", tone: "text-chalk" },
+  ];
+
   return (
     <div className="space-y-6">
       <Panel title="Content Readability Analyzer" sub="Checks clarity, structure, direct answers, and citation-ready formatting">
@@ -10,64 +28,51 @@ export default function ReadabilityPage() {
             <Button>Analyze Readability</Button>
             <Button variant="secondary">Batch Check</Button>
           </div>
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5">
-              <p className="text-sm text-mist">Avg Readability</p>
-              <p className="mt-2 text-3xl font-semibold text-chalk">72/100</p>
-              <p className="mt-1 text-xs text-mint font-mono">+3 vs last week</p>
-            </div>
-            <div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5">
-              <p className="text-sm text-mist">Pages Analyzed</p>
-              <p className="mt-2 text-3xl font-semibold text-chalk">234</p>
-              <p className="mt-1 text-xs text-mint font-mono">+12 this week</p>
-            </div>
-            <div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5">
-              <p className="text-sm text-mist">Pass Rate</p>
-              <p className="mt-2 text-3xl font-semibold text-chalk">78%</p>
-              <p className="mt-1 text-xs text-mint font-mono">+5% vs last week</p>
-            </div>
-            <div className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5">
-              <p className="text-sm text-mist">Citation-Ready</p>
-              <p className="mt-2 text-3xl font-semibold text-chalk">65%</p>
-              <p className="mt-1 text-xs text-gold font-mono">+8% vs last week</p>
-            </div>
+            {tiles.map((t) => (
+              <div key={t.label} className="bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-5">
+                <p className="text-sm text-mist">{t.label}</p>
+                <p className={`mt-2 text-3xl font-semibold ${t.tone}`}>{t.value}</p>
+              </div>
+            ))}
           </div>
-          <div className="rounded-xl border border-line overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-surface-1 border-b border-line">
-                  <th className="px-4 py-3 text-left text-sm font-medium text-mist">Page</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-mist">Score</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-mist">Clarity</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-mist">Structure</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-mist">Citation-Ready</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-line/50 hover:bg-surface-1">
-                  <td className="px-4 py-3 font-medium text-chalk truncate max-w-xs">Best CRM for Small Business 2024</td>
-                  <td className="px-4 py-3 text-center"><span className="text-mint font-mono text-sm">87</span></td>
-                  <td className="px-4 py-3 text-center"><span className="text-mint text-sm">92</span></td>
-                  <td className="px-4 py-3 text-center"><span className="text-mint text-sm">85</span></td>
-                  <td className="px-4 py-3 text-center"><span className="text-gold text-sm">72</span></td>
-                </tr>
-                <tr className="border-b border-line/50 hover:bg-surface-1">
-                  <td className="px-4 py-3 font-medium text-chalk truncate max-w-xs">AI Search Visibility Guide</td>
-                  <td className="px-4 py-3 text-center"><span className="text-gold text-sm">74</span></td>
-                  <td className="px-4 py-3 text-center"><span className="text-gold text-sm">78</span></td>
-                  <td className="px-4 py-3 text-center"><span className="text-gold text-sm">70</span></td>
-                  <td className="px-4 py-3 text-center"><span className="text-coral text-sm">60</span></td>
-                </tr>
-                <tr className="border-b border-line/50 hover:bg-surface-1">
-                  <td className="px-4 py-3 font-medium text-chalk truncate max-w-xs">Schema Markup for Local SEO</td>
-                  <td className="px-4 py-3 text-center"><span className="text-coral text-sm">58</span></td>
-                  <td className="px-4 py-3 text-center"><span className="text-coral text-sm">62</span></td>
-                  <td className="px-4 py-3 text-center"><span className="text-coral text-sm">55</span></td>
-                  <td className="px-4 py-3 text-center"><span className="text-coral text-sm">50</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+
+          {items.length === 0 ? (
+            <EmptyState
+              title="Nothing analyzed yet"
+              sub="Add content and each piece is scored for clarity, structure and citation-readiness. The scores are listed here."
+            />
+          ) : (
+            <div className="rounded-xl border border-line overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-surface-1 border-b border-line">
+                    <th className="px-4 py-3 text-left text-sm font-medium text-mist">Piece</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-mist">Words</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium text-mist">Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((c) => (
+                    <tr key={c.title} className="border-b border-line/50 hover:bg-surface-1">
+                      <td className="px-4 py-3 font-medium text-chalk truncate max-w-xs">{c.title}</td>
+                      <td className="px-4 py-3 text-center font-mono text-xs text-mist">{c.words}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span
+                          className={`font-mono text-sm ${
+                            c.score >= 80 ? "text-mint" : c.score >= 60 ? "text-gold" : "text-coral"
+                          }`}
+                        >
+                          {c.score}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </Panel>
     </div>

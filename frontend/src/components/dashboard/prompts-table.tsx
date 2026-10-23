@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { StatusChip } from "@/components/dashboard/panel";
-import { ENGINE_KEYS, ENGINE_LABELS, prompts, type EngineStatus } from "@/lib/dashboard-data";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ENGINE_KEYS, ENGINE_LABELS, type EngineStatus, type PromptRow } from "@/lib/dashboard-config";
 
 const TYPES = ["All", "Category", "Comparison", "Problem", "Brand"] as const;
 const STATUSES: ("All" | EngineStatus)[] = ["All", "cited", "mentioned", "missing"];
 
-export function PromptsTable() {
+export function PromptsTable({ prompts }: { prompts: PromptRow[] }) {
   const [type, setType] = useState<(typeof TYPES)[number]>("All");
   const [status, setStatus] = useState<(typeof STATUSES)[number]>("All");
   const [query, setQuery] = useState("");
@@ -20,7 +21,16 @@ export function PromptsTable() {
       if (q && !p.prompt.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [type, status, query]);
+  }, [prompts, type, status, query]);
+
+  if (prompts.length === 0) {
+    return (
+      <EmptyState
+        title="No prompts tracked yet"
+        sub="Add the questions your buyers ask AI and each one gets checked against every engine on every run."
+      />
+    );
+  }
 
   return (
     <div>
@@ -108,7 +118,6 @@ export function PromptsTable() {
 
       <p className="mt-4 font-mono text-[0.62rem] text-mist-dim">
         {rows.length} of {prompts.length} prompts · weekly runs across 4 engines
-      </p>
-    </div>
+      </p>    </div>
   );
 }

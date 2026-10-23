@@ -1,0 +1,96 @@
+# OmniGEO — the API backend and the Next.js frontend, together.
+#
+#   docker compose up --build
+#
+# The frontend is on http://localhost:3000 and the API on http://localhost:3001.
+# Postgres 18 lives in the `omnigeo-pg` volume.
+
+services:
+  db:
+    image: postgres:18
+    container_name: omnigeo-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+      POSTGRES_DB: "${POSTGRES_DB:-omnigeo}"
+      # Postgres 18 keeps its data in a major-version directory under
+      # /var/lib/postgresql, so that is what the volume mounts.
+      PGDATA: "/var/lib/postgresql/18/docker"
+    volumes:
+      - omnigeo-pg:/var/lib/postgresql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-omnigeo}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./backend
+    image: omnigeo-backend:latest
+    container_name: omnigeo-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      HOST: 0.0.0.0
+      DATABASE_URL: "${DATABASE_URL:-postgres://postgres:postgres@db:5432/omnigeo}"
+      # Seed the demo account (demo@omnigeo.ai / demo1234) on first boot.
+      SEED_DEMO: "${SEED_DEMO:-true}"
+      # Where the frontend lives — used for CORS and payment redirects.
+      FRONTEND_URL: "${FRONTEND_URL:-http://localhost:3000}"
+      JWT_SECRET: "${JWT_SECRET:-dev-secret}"
+      COOKIE_SECRET: "${COOKIE_SECRET:-dev-secret}"
+      # The session cookie only carries the Secure flag over HTTPS.
+      COOKIE_SECURE: "${COOKIE_SECURE:-false}"
+      # All proxied requests share one address; keep the limit generous.
+      RATE_LIMIT_MAX: "${RATE_LIMIT_MAX:-1000}"
+      TRUST_PROXY: "${TRUST_PROXY:-false}"
+      # Provider credentials.
+      DATAFORSEO_LOGIN: "${DATAFORSEO_LOGIN:-}"
+      DATAFORSEO_PASSWORD: "${DATAFORSEO_PASSWORD:-}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        BACKEND_URL: http://backend:3001
+    image: omnigeo-frontend:latest
+    container_name: omnigeo-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      # The server-side proxy routes talk to the backend over the compose
+      # network — never through the published port.
+      BACKEND_URL: http://backend:3001
+      OMNI_BACKEND: "on"
+      AUTH_SECRET: "${AUTH_SECRET:-omnigeo-dev-secret-change-in-production}"
+      AUTH_COOKIE_SECURE: "${AUTH_COOKIE_SECURE:-false}"
+      NEXT_PUBLIC_APP_URL: "${FRONTEND_URL:-http://localhost:3000}"
+    ports:
+      - "3000:3000"
+
+volumes:
+  omnigeo-pg:

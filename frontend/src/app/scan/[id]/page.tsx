@@ -5,6 +5,8 @@ import { ScoreRing } from "@/components/scan/score-ring";
 import { ScanTabs, type TabDef } from "@/components/scan/scan-tabs";
 import { AnswersPanel, CrawlersPanel, HealthPanel, PagesPanel, RivalsPanel } from "@/components/scan/panels";
 import { Reveal } from "@/components/ui/reveal";
+import { EmptyState } from "@/components/ui/empty-state";
+import { getScanReportData } from "@/server/scans";
 
 export const metadata: Metadata = {
   title: "AI visibility scan",
@@ -20,7 +22,35 @@ export default async function ScanReportPage({
 }) {
   const { id } = await params;
   const { d } = await searchParams;
-  const report = buildScanReport(d ?? "northwindlabs.com", id);
+  const data = await getScanReportData(id, d);
+
+  if (!data) {
+    return (
+      <div className="container-page space-y-6 py-16">
+        <EmptyState
+          title="This report is no longer available"
+          sub="Scan reports are tied to the session that ran them. Start a new scan to get a fresh one."
+          action={
+            <Link
+              href="/scan"
+              className="rounded-full bg-gradient-to-r from-iris to-aqua px-6 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
+            >
+              Run a new scan
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
+
+  const report = buildScanReport({
+    domain: data.domain || d || "",
+    scanId: id,
+    scans: data.scans,
+    issues: data.issues,
+    prompts: data.prompts,
+    bots: data.bots,
+  });
 
   const fixesNeeded = report.checks.filter((c) => c.status !== "pass").length;
 
@@ -66,7 +96,7 @@ export default async function ScanReportPage({
           { label: "Pages", value: `${report.pagesCrawled}` },
           { label: "Checks fine", value: `${report.checks.length - fixesNeeded}/${report.checks.length}` },
           { label: "Time", value: report.duration },
-          { label: "Scan id", value: report.scanId.replace(/^scan-/, "") },
+          { label: "Scan id", value: report.scanId.slice(0, 8) },
         ].map((m) => (
           <div key={m.label}>
             <dt className="font-mono text-[0.55rem] uppercase tracking-widest text-mist-dim">{m.label}</dt>
@@ -104,7 +134,7 @@ export default async function ScanReportPage({
           <div className="glass relative overflow-hidden rounded-3xl px-8 py-12 text-center sm:px-14">
               <div className="absolute inset-x-0 top-0 h-px strip-line" aria-hidden />
             <h2 className="mx-auto max-w-xl text-2xl font-semibold tracking-tight text-chalk sm:text-3xl">
-              This was 5 prompts. The workspace tracks 50 — weekly, per engine.
+              This was one scan. The workspace tracks every prompt, weekly, per engine.
             </h2>
             <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-mist">
               Create a free account to unlock every tab of this report, then track prompt history, rank changes, audits
@@ -128,8 +158,11 @@ export default async function ScanReportPage({
         </Reveal>
 
         <p className="font-mono text-[0.6rem] leading-relaxed text-mist-dim">
-          Demo scan — scores, prompts and competitors are illustrative sample data generated for this page. Reports are
-          private and never indexed.
+          Every figure above comes from the scan of {report.domain}
+          {report.ranAt ? ` run on ${report.ranAt}` : ""}.{" "}
+          {report.simulated
+            ? "Provider credentials are not configured, so the engine produced simulated provider responses for this run."
+            : "Reports are private and never indexed."}
         </p>
       </div>
     </>

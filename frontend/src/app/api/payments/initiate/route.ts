@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPaymentClient, calculateTransactionFee, estimateMonthlyCost } from "@/server/services/payments";
 import { getAuthUser } from "@/server/auth";
+import { backendEnabled, backendFetch } from "@/server/backend-client";
+import { getAuthUserWithBackendToken } from "@/server/auth-backend";
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,6 +18,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Provider and plan are required" }, { status: 400 });
     }
 
+    // 1. Prefer the backend — it owns the payments table and the plan on the
+    //    workspace, so initiating here keeps both stores in step.
+    if (backendEnabled()) {
+      const { backendToken } = await getAuthUserWithBackendToken();
+      const proxied = await backendFetch<{
+        success: boolean;
+        paymentUrl?: string;
+        paymentId?: string;
+        orderId?: string;
+        amount?: number;
+        fee?: number;
+        totalAmount?: number;
+        error?: string;
+      }>("/api/payments/initiate", {
+        body: { provider, plan, interval, returnUrl, cancelUrl },
+        token: backendToken ?? undefined,
+      });
+
+      if (proxied.ok) {
+        return NextResponse.json({ ...proxied.data, source: "backend" });
+      }
+      // A 4xx is a validation problem the caller should see; anything else
+      // (backend unreachable) falls through to the local implementation.
+      if (proxied.status >= 400 && proxied.status < 500) {
+        return NextResponse.json({ error: proxied.error }, { status: proxied.status });
+      }
+    }
+
+    // 2. Local fallback — talks to the payment provider directly.
     const planPrices = { Starter: 4999, "Pro Growth": 12999, Enterprise: 29999 };
     const amount = planPrices[plan as keyof typeof planPrices];
     if (!amount) {

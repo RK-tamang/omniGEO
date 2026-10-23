@@ -1,9 +1,7 @@
 import { Hero } from "@/components/home/hero";
-import { LogoMarquee } from "@/components/home/logo-marquee";
 import { ShiftSection } from "@/components/home/shift-section";
 import { PlatformSection } from "@/components/home/platform-section";
 import { HowItWorks } from "@/components/home/how-it-works";
-import { Testimonials } from "@/components/home/testimonials";
 import { Audiences } from "@/components/home/audiences";
 import { PricingTeaser, FaqSection } from "@/components/home/pricing-faq";
 import { BlogPreview } from "@/components/blog/blog-preview";
@@ -44,11 +42,9 @@ export default function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
       <Hero />
-      <LogoMarquee />
       <ShiftSection />
       <PlatformSection />
       <HowItWorks />
-      <Testimonials />
       <Audiences />
       <PricingTeaser />
       <FaqSection />

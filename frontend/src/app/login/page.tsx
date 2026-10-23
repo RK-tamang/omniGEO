@@ -42,15 +42,15 @@ export default async function LoginPage({
             See what AI says about <span className="font-display font-normal italic text-gradient">your brand.</span>
           </h1>
           <p className="mt-4 text-sm leading-relaxed text-mist">
-            The demo workspace tracks 50 prompts across ChatGPT, Perplexity, Gemini and AI Overviews for a fictional
-            company, Northwind Labs.
+            The demo workspace is a real, working workspace for a sample site — every number you see comes from the
+            scans it has actually run.
           </p>
 
           <dl className="mt-8 grid grid-cols-3 gap-3">
             {[
-              { label: "Mention rate", value: "34.8%" },
-              { label: "Citations", value: "21.4%" },
-              { label: "Health", value: "87" },
+              { label: "Engines tracked", value: "4" },
+              { label: "Tools in suite", value: "75" },
+              { label: "Source of truth", value: "1" },
             ].map((s) => (
               <div key={s.label} className="glass rounded-xl p-4">
                 <dt className="font-mono text-[0.55rem] uppercase tracking-widest text-mist-dim">{s.label}</dt>

@@ -2,17 +2,28 @@
 
 import { useMemo, useState } from "react";
 import { ScoreBar, StatusChip } from "@/components/dashboard/panel";
-import { contentItems } from "@/lib/dashboard-data";
+import { EmptyState } from "@/components/ui/empty-state";
+import type { ContentItem } from "@/lib/dashboard-config";
 
 const STATUSES = ["All", "Published", "In review", "Draft"] as const;
 
-export function ContentTable() {
+export function ContentTable({ items }: { items: ContentItem[] }) {
   const [status, setStatus] = useState<(typeof STATUSES)[number]>("All");
+  const source = items;
 
   const rows = useMemo(
-    () => contentItems.filter((c) => status === "All" || c.status === status),
-    [status],
+    () => source.filter((c) => status === "All" || c.status === status),
+    [source, status],
   );
+
+  if (source.length === 0) {
+    return (
+      <EmptyState
+        title="No content tracked yet"
+        sub="Generate a draft from the Content Studio and it will appear here with its citation-readiness score."
+      />
+    );
+  }
 
   return (
     <div>
@@ -29,7 +40,7 @@ export function ContentTable() {
           >
             {s}
             <span className="ml-1.5 font-mono text-[0.6rem] text-mist-dim">
-              {s === "All" ? contentItems.length : contentItems.filter((c) => c.status === s).length}
+              {s === "All" ? source.length : source.filter((c) => c.status === s).length}
             </span>
           </button>
         ))}
@@ -67,7 +78,7 @@ export function ContentTable() {
       </div>
 
       <p className="mt-4 font-mono text-[0.62rem] text-mist-dim">
-        {rows.length} of {contentItems.length} pieces · score = citation-readiness (sources, structure, clarity)
+        {rows.length} of {source.length} pieces · score = citation-readiness (sources, structure, clarity)
       </p>
     </div>
   );

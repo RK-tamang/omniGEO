@@ -2,7 +2,7 @@ const bars = [42, 58, 51, 74, 66, 88, 79];
 
 export function FeaturePreview({ title }: { title: string }) {
   return (
-    <div className="glass relative overflow-hidden rounded-2xl p-1.5 shadow-[0_40px_120px_-50px_rgba(139,92,246,0.55)]">
+    <div className="glass relative overflow-hidden rounded-2xl p-1.5 shadow-[0_40px_120px_-50px_rgba(62,124,176,0.55)]">
       <div className="rounded-[0.9rem] bg-ink-900/80 p-5 sm:p-6">
         {/* header */}
         <div className="flex items-center justify-between border-b border-line pb-4">

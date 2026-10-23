@@ -72,7 +72,7 @@ export function AnswerDemo() {
   }, []);
 
   return (
-    <div className="glass animate-float relative w-full overflow-hidden rounded-2xl p-1.5 shadow-[0_40px_120px_-40px_rgba(139,92,246,0.5)]">
+    <div className="glass animate-float relative w-full overflow-hidden rounded-2xl p-1.5 shadow-[0_40px_120px_-40px_rgba(62,124,176,0.5)]">
       <div className="rounded-[0.9rem] bg-ink-900/80 p-5 sm:p-6">
         {/* window bar */}
         <div className="mb-5 flex items-center gap-1.5">
