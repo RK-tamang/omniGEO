@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { DashboardHeader, Panel } from "@/components/dashboard/panel";
 import { ContentTable } from "@/components/dashboard/content-table";
-import { getWorkspaceData } from "@/server/workspace-data";
+import { backendFetch } from "@/lib/api-client";
+import { cookies } from "next/headers";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth-session";
 import { mergeContentItems, mergeContentKpis } from "@/lib/workspace-data";
 
 export const metadata: Metadata = { title: "Content Studio" };
@@ -16,7 +18,15 @@ const checklist = [
 ];
 
 export default async function ContentPage() {
-  const data = await getWorkspaceData();
+  const cookieStore = await cookies();
+  const session = await verifySessionToken(cookieStore.get(SESSION_COOKIE)?.value);
+
+  const result = await backendFetch<any>("/api/workspace/data", {
+    method: "GET",
+    headers: session?.backendToken ? { Authorization: `Bearer ${session.backendToken}` } : {},
+  });
+
+  const data = result.ok && result.data ? result.data : null;
   const contentItems = mergeContentItems(data);
   const contentKpis = mergeContentKpis(data);
   const avgScore = contentItems.length

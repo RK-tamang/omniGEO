@@ -69,6 +69,7 @@ export type BackendScan = {
   startedAt?: string | number | null;
   completedAt?: string | number | null;
   createdAt?: string | number | null;
+  durationMs?: number | null;
 };
 
 export type BackendIssue = {
@@ -322,11 +323,11 @@ export function buildScanReport(input: {
   };
 
   const score =
-    typeof visibility?.score === "number"
-      ? visibility.score
-      : typeof audit?.score === "number"
-        ? audit.score
-        : 0;
+    typeof audit?.score === "number"
+      ? Math.min(100, Math.max(0, Math.round(audit.score)))
+      : typeof visibility?.score === "number"
+      ? Math.min(100, Math.max(0, Math.round(visibility.score)))
+      : 0;
 
   const started = toMillis(visibility?.startedAt ?? audit?.startedAt ?? visibility?.createdAt);
   const completed = toMillis(visibility?.completedAt ?? audit?.completedAt ?? visibility?.createdAt);

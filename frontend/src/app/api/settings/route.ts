@@ -1,9 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth-session";
-import { getSettings, resetSettings, saveSettings, type Settings } from "@/server/db";
-import { backendEnabled, backendFetch } from "@/server/backend-client";
-import { fromBackend, type BackendSettingsResponse } from "@/server/settings";
+import { apiFetch } from "@/lib/api-client";
 
 export const dynamic = "force-dynamic";
 
@@ -16,23 +14,22 @@ export async function GET() {
   const session = await requireSession();
   if (!session) return NextResponse.json({ ok: false, error: "Not signed in." }, { status: 401 });
 
-  // Prefer the backend's persisted settings (single source of truth).
-  if (session.backendToken && backendEnabled()) {
-    const result = await backendFetch<BackendSettingsResponse>("/api/settings", {
+  if (session.backendToken) {
+    const result = await apiFetch<any>("/api/v1/settings", {
       method: "GET",
-      token: session.backendToken,
+      headers: { Authorization: `Bearer ${session.backendToken}` },
     });
     if (result.ok) {
-      const settings = fromBackend(result.data ?? {}, getSettings());
+      const settings = (result.data as any)?.settings || result.data || {};
       return NextResponse.json(
-        { ok: true, settings, source: "backend" },
+        { ok: true, settings, source: "api" },
         { headers: { "Cache-Control": "no-store" } },
       );
     }
   }
 
   return NextResponse.json(
-    { ok: true, settings: getSettings(), source: "local" },
+    { ok: true, settings: {}, source: "local" },
     { headers: { "Cache-Control": "no-store" } },
   );
 }
@@ -50,34 +47,32 @@ export async function POST(request: Request) {
 
   const isReset = Boolean(body && typeof body === "object" && (body as { reset?: boolean }).reset);
 
-  // Push to the backend first so browser and backend never drift.
-  if (session.backendToken && backendEnabled()) {
+  if (session.backendToken) {
     const patch = isReset ? undefined : (body as Record<string, unknown>);
-    const result = await backendFetch<{ success: boolean; settings: Partial<Settings> }>("/api/settings", {
+    const result = await apiFetch<any>("/api/v1/settings", {
       method: "PATCH",
       body: patch ?? {},
-      token: session.backendToken,
+      headers: { Authorization: `Bearer ${session.backendToken}` },
     });
     if (result.ok) {
-      const settings = fromBackend({ settings: result.data?.settings }, getSettings());
+      const settings = (result.data as any)?.settings || result.data || {};
       return NextResponse.json(
         { ok: true, settings, source: "backend" },
         { headers: { "Cache-Control": "no-store" } },
       );
     }
-    if (result.status >= 400 && result.status < 500 && result.status !== 401) {
+    if ((result.status ?? 0) >= 400 && (result.status ?? 0) < 500 && (result.status ?? 0) !== 401) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     }
   }
 
   if (isReset) {
-    return NextResponse.json({ ok: true, settings: resetSettings(), source: "local" });
+    return NextResponse.json({ ok: true, settings: {}, source: "local" });
   }
 
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return NextResponse.json({ ok: false, error: "Invalid request." }, { status: 400 });
   }
 
-  const settings = saveSettings(body as Partial<Settings>);
-  return NextResponse.json({ ok: true, settings, source: "local" }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ ok: true, settings: body, source: "local" }, { headers: { "Cache-Control": "no-store" } });
 }

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { SectionHeading } from "@/components/ui/primitives";
 import { Reveal } from "@/components/ui/reveal";
 import { CtaBand } from "@/components/home/cta-band";
-import { ButtonArrow } from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: "About",
@@ -59,7 +58,6 @@ export default function AboutPage() {
               does ChatGPT say about us?</em> So we built the answer, and eventually the whole platform around it.
             </p>
             <div className="mt-9">
-              <ButtonArrow href="/contact?intent=demo">Book a demo</ButtonArrow>
             </div>
           </div>
 

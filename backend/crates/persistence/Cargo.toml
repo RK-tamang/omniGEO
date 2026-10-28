@@ -1,0 +1,13 @@
+[package]
+name = "answerscope-persistence"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+answerscope-config = { path = "../config" }
+answerscope-core = { path = "../core" }
+anyhow = "1.0"
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "migrate"] }
+thiserror = "2.0"
+tokio = { version = "1.43", features = ["time"] }
+uuid = { version = "1.12", features = ["v4", "serde"] }

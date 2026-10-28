@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  --color-surface: oklch(0.97 0.003 220);
+  --color-surface-1: oklch(0.95 0.004 220);
+  --color-surface-2: oklch(0.92 0.005 220);
+  --color-surface-3: oklch(0.86 0.006 220);
+  --color-border-line: oklch(0.88 0.004 220);
+  --color-border-line-strong: oklch(0.79 0.005 220);
+  --color-ink-950: oklch(0.21 0.006 220);
+  --color-ink-900: oklch(0.27 0.007 220);
+  --color-chart-grid: oklch(0.88 0.004 220);
+  --color-chart-axis: oklch(0.55 0.004 220);
+  --color-chart-crosshair: oklch(0.6 0.006 220);
+  --color-chalk: oklch(0.37 0.008 220);
+  --color-mist: oklch(0.56 0.004 220);
+  --color-mist-dim: oklch(0.45 0.004 220);
+  --color-iris: oklch(0.62 0.15 252);
+  --color-aqua: oklch(0.62 0.14 192);
+  --color-mint: oklch(0.74 0.13 160);
+  --color-gold: oklch(0.73 0.14 80);
+  --color-coral: oklch(0.66 0.17 22);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-geist-sans);
+}
+
+html {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+body {
+  margin: 0;
+  color: var(--color-chalk);
+  background-color: var(--color-surface);
+}
+
+input, select, textarea, button {
+  font-family: inherit;
+  font-size: inherit;
+}

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { saveContact } from "@/server/db";
-import { backendEnabled, backendFetch } from "@/server/backend-client";
+import { backendFetch } from "@/lib/api-client";
 
 export const dynamic = "force-dynamic";
 
@@ -39,26 +38,20 @@ export async function POST(request: Request) {
     message: body.message ? String(body.message) : undefined,
   };
 
-  // Prefer the backend so enquiries are stored with the rest of the data.
-  // Contact requests are unauthenticated, so no session is required.
-  if (backendEnabled()) {
-    const result = await backendFetch<{ success: boolean; id?: string }>("/api/contact", {
+  try {
+    const result = await backendFetch<{ success: boolean; id?: string }>("/api/v1/contact", {
       method: "POST",
       body: payload,
     });
     if (result.ok) {
-      return NextResponse.json({ ok: true, id: result.data?.id, source: "backend" });
+      return NextResponse.json({ ok: true, id: result.data?.id, source: "api" });
     }
-    // A 4xx is a validation problem the caller should see; anything else
-    // (backend down) falls through to the local store.
-    if (result.status >= 400 && result.status < 500) {
+    if (result.status && result.status >= 400 && result.status < 500) {
       return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
     }
+  } catch (e) {
+    // fall through
   }
 
-  // Persist to the JSON store (the start of the real backend) and log in dev.
-  const record = saveContact(payload);
-  console.log("[contact] saved", record);
-
-  return NextResponse.json({ ok: true, source: "local" });
+  return NextResponse.json({ ok: false, error: "Contact submission failed" }, { status: 502 });
 }

@@ -1,0 +1,13 @@
+[package]
+name = "answerscope-integrations"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+answerscope-core = { path = "../core" }
+answerscope-ai-visibility = { path = "../ai-visibility" }
+async-trait = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+url = "2.5"

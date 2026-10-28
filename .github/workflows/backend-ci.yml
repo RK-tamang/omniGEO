@@ -1,0 +1,93 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # Disposable database created by the service container below.
+  TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/answerscope_test
+  BILLING_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/answerscope_test
+
+jobs:
+  rust:
+    name: Format, lint, test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: answerscope_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d answerscope_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend -> target
+
+      - name: Verify lockfile is reproducible
+        run: cargo metadata --locked --format-version 1 > /dev/null
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Lint with Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Run unit and integration tests
+        run: cargo test --workspace --all-targets --locked
+
+      - name: Validate applied migrations
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client
+          psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -c "SELECT version, description, success FROM _sqlx_migrations ORDER BY version;"
+          failed="$(psql "$TEST_DATABASE_URL" -tAc 'SELECT count(*) FROM _sqlx_migrations WHERE NOT success')"
+          applied="$(psql "$TEST_DATABASE_URL" -tAc 'SELECT count(*) FROM _sqlx_migrations')"
+          expected="$(find migrations -maxdepth 1 -name '*.sql' | wc -l)"
+          test "$failed" = "0"
+          test "$applied" = "$expected"
+          echo "Applied $applied of $expected migrations."
+
+      - name: Check OpenAPI document is current
+        run: |
+          cargo run --locked -p answerscope-api --example openapi > /tmp/openapi.json
+          test -s /tmp/openapi.json
+          grep -q '"/ready"' /tmp/openapi.json

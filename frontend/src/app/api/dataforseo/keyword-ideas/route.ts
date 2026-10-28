@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDataForSEOClient } from "@/server/services/dataforseo";
-import { getBillingTracker } from "@/server/services/billing";
-import { getAuthUser } from "@/server/auth";
-import { backendEnabled, backendFetch } from "@/server/backend-client";
-import { getAuthUserWithBackendToken } from "@/server/auth-backend";
+import { cookies } from "next/headers";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth-session";
+import { backendFetch } from "@/lib/api-client";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getAuthUser(request);
-    if (!user) {
+    const cookieStore = await cookies();
+    const session = await verifySessionToken(cookieStore.get(SESSION_COOKIE)?.value);
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -19,49 +20,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Keywords array is required" }, { status: 400 });
     }
 
-    // 1. Prefer the backend engine.
-    if (backendEnabled()) {
-      const { backendToken } = await getAuthUserWithBackendToken();
-      const proxied = await backendFetch<{
-        success: boolean;
-        data: { keywords: unknown[] };
-        creditsUsed: number;
-        simulated: boolean;
-        error?: string;
-      }>("/api/dataforseo/keyword-ideas", {
-        body: { keywords, location_code, language_code, include_serp_info },
-        token: backendToken ?? undefined,
-      });
+    const proxied = await backendFetch<{
+      success: boolean;
+      data: { keywords: unknown[] };
+      creditsUsed: number;
+      simulated: boolean;
+      error?: string;
+    }>("/api/v1/dataforseo/keyword-ideas", {
+      body: { keywords, location_code, language_code, include_serp_info },
+      headers: session.backendToken ? { Authorization: `Bearer ${session.backendToken}` } : {},
+    });
 
-      if (proxied.ok) {
-        if (!proxied.data.simulated) {
-          getBillingTracker().recordDataForSEOUsage(user.id, user.workspaceId, "keyword_ideas", 1, {
-            keywordCount: keywords.length,
-            source: "backend",
-          });
-        }
-        return NextResponse.json({ ...proxied.data, source: "backend" });
-      }
-
-      if (proxied.status >= 400 && proxied.status < 500 && proxied.status !== 401) {
-        return NextResponse.json({ success: false, error: proxied.error }, { status: 502 });
-      }
+    if (proxied.ok) {
+      return NextResponse.json({ ...proxied.data, source: "backend" });
     }
 
-    // 2. Local fallback.
-    const client = getDataForSEOClient();
-    const result = await client.getKeywordIdeas({ keywords, location_code, language_code, include_serp_info });
-
-    // Track usage
-    getBillingTracker().recordDataForSEOUsage(user.id, user.workspaceId, "keyword_ideas", 1, {
-      keywordCount: keywords.length,
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: result.tasks?.[0]?.result ?? null,
-      source: "local",
-    });
+    return NextResponse.json({ success: false, error: proxied.error }, { status: proxied.status || 502 });
   } catch (error) {
     console.error("Keyword Ideas API error:", error);
     return NextResponse.json(

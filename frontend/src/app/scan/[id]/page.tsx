@@ -6,7 +6,9 @@ import { ScanTabs, type TabDef } from "@/components/scan/scan-tabs";
 import { AnswersPanel, CrawlersPanel, HealthPanel, PagesPanel, RivalsPanel } from "@/components/scan/panels";
 import { Reveal } from "@/components/ui/reveal";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getScanReportData } from "@/server/scans";
+import { SESSION_COOKIE } from "@/lib/auth-session";
+import { cookies } from "next/headers";
+import { api } from "@/lib/api-client";
 
 export const metadata: Metadata = {
   title: "AI visibility scan",
@@ -22,7 +24,40 @@ export default async function ScanReportPage({
 }) {
   const { id } = await params;
   const { d } = await searchParams;
-  const data = await getScanReportData(id, d);
+
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+
+  const res = await api.getScanResults(id, token);
+
+  if (!res.ok || !res.data) {
+    return (
+      <div className="container-page space-y-6 py-16">
+        <EmptyState
+          title="This report is no longer available"
+          sub="Scan reports are tied to the session that ran them. Start a new scan to get a fresh one."
+          action={
+            <Link
+              href="/scan"
+              className="rounded-full bg-gradient-to-r from-iris to-aqua px-6 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
+            >
+              Run a new scan
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
+
+  const data = res.data;
+  const report = buildScanReport({
+    domain: data.domain || d || "",
+    scanId: id,
+    scans: data.scans,
+    issues: data.issues,
+    prompts: data.prompts,
+    bots: data.bots,
+  });
 
   if (!data) {
     return (
@@ -42,15 +77,6 @@ export default async function ScanReportPage({
       </div>
     );
   }
-
-  const report = buildScanReport({
-    domain: data.domain || d || "",
-    scanId: id,
-    scans: data.scans,
-    issues: data.issues,
-    prompts: data.prompts,
-    bots: data.bots,
-  });
 
   const fixesNeeded = report.checks.filter((c) => c.status !== "pass").length;
 

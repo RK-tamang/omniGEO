@@ -1,0 +1,8 @@
+id = "growth"
+display_name = "Growth (Best Value draft)"
+publication_status = "internal_unvalidated_economics"
+suggested_monthly_price_usd = 49
+max_projects = 2
+tracked_prompts = 50
+monitoring_cadence = "weekly"
+features = ["audit.basic", "audit.advanced", "audit.schema", "audit.pdf_export", "visibility.observe", "visibility.history", "prompts.track", "competitors.compare", "citations.analyze", "monitoring.scheduled"]

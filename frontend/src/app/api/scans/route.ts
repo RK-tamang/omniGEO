@@ -1,37 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthUser } from "@/server/auth";
-import { backendEnabled, backendFetch } from "@/server/backend-client";
-import { getAuthUserWithBackendToken } from "@/server/auth-backend";
+import { cookies } from "next/headers";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth-session";
+import { backendFetch } from "@/lib/api-client";
+
+export const dynamic = "force-dynamic";
 
 /**
- * Scan endpoints live only in the Fastify backend (they need the engine, the
- * provider clients, and DB persistence). These routes are a thin authenticated
- * proxy so dashboard pages can call `/api/scans*` on the same origin.
+ * Scan endpoints live only in the Rust backend. These routes are a thin
+ * authenticated proxy so dashboard pages can call `/api/scans*` on the same
+ * origin.
  */
 
 const SCAN_TYPES = {
-  visibility: "/api/scans/visibility",
-  audit: "/api/scans/audit",
-  crawler: "/api/scans/crawler",
+  visibility: "/api/v1/scans/visibility",
+  audit: "/api/v1/scans/audit",
+  crawler: "/api/v1/crawler/robots",
 } as const;
 
 type ScanType = keyof typeof SCAN_TYPES;
 
+async function getSession() {
+  const cookieStore = await cookies();
+  return verifySessionToken(cookieStore.get(SESSION_COOKIE)?.value);
+}
+
 export async function GET(request: NextRequest) {
-  const user = await getAuthUser(request);
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!backendEnabled()) {
-    return NextResponse.json({ error: "Scan engine unavailable", scans: [] }, { status: 503 });
-  }
-
-  const { backendToken } = await getAuthUserWithBackendToken();
   const limit = request.nextUrl.searchParams.get("limit");
-  const path = limit ? `/api/scans?limit=${encodeURIComponent(limit)}` : "/api/scans";
+  const path = limit ? `/api/v1/scans?limit=${encodeURIComponent(limit)}` : "/api/v1/scans";
 
   const proxied = await backendFetch<{ scans: unknown[] }>(path, {
     method: "GET",
-    token: backendToken ?? undefined,
+    headers: session.backendToken ? { Authorization: `Bearer ${session.backendToken}` } : {},
   });
 
   if (!proxied.ok) {
@@ -41,8 +43,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const user = await getAuthUser(request);
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let body: { type?: string; [key: string]: unknown };
   try {
@@ -59,16 +61,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!backendEnabled()) {
-    return NextResponse.json({ error: "Scan engine unavailable" }, { status: 503 });
-  }
-
-  const { backendToken } = await getAuthUserWithBackendToken();
   const { type: _ignored, ...payload } = body;
 
   const proxied = await backendFetch<{ scanId: string; status: string; message?: string }>(
     SCAN_TYPES[type],
-    { body: payload, token: backendToken ?? undefined, timeoutMs: 60_000 },
+    { body: payload, headers: session.backendToken ? { Authorization: `Bearer ${session.backendToken}` } : {} },
   );
 
   if (!proxied.ok) {

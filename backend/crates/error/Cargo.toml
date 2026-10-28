@@ -1,0 +1,13 @@
+[package]
+name = "answerscope-error"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow = "1.0"
+axum = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+tokio = { version = "1.43", features = ["rt"] }
+tracing = "0.1"
+utoipa = "5"

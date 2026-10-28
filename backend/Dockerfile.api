@@ -1,0 +1,42 @@
+# syntax=docker/dockerfile:1.7
+#
+# AnswerScope API and worker image.
+#
+# Both binaries are built from the same Cargo workspace and shipped in one
+# image. Start the API with the default command, or the worker with:
+#   command: ["answerscope-worker"]
+#
+# The base image is pinned and the build uses Cargo.lock so images are
+# reproducible.
+
+FROM rust:1.99-bookworm AS build
+WORKDIR /app
+
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY apps ./apps
+COPY crates ./crates
+COPY migrations ./migrations
+
+RUN cargo build --release -p answerscope-api -p answerscope-worker
+
+FROM debian:bookworm-slim AS runtime
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --create-home --uid 10001 app \
+    && mkdir -p /data/reports \
+    && chown -R app:app /data/reports
+USER app
+WORKDIR /home/app
+
+COPY --from=build /app/target/release/answerscope-api /usr/local/bin/answerscope-api
+COPY --from=build /app/target/release/answerscope-worker /usr/local/bin/answerscope-worker
+
+EXPOSE 8080
+ENV API_BIND_ADDR=0.0.0.0:8080 \
+    LOG_FORMAT=json \
+    REPORT_STORAGE_DIR=/data/reports
+
+# The API healthcheck is defined in docker-compose.yml so the readiness
+# timeout is explicit. `curl` is present for operators and health probes.
+CMD ["answerscope-api"]

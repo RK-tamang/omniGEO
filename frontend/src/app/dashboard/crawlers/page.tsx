@@ -4,19 +4,37 @@ import { KpiCard } from "@/components/dashboard/kpi-card";
 import { DashboardHeader, Panel } from "@/components/dashboard/panel";
 import { CrawlerBots } from "@/components/dashboard/crawler-bots";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getCrawlerAccess, getWorkspaceData } from "@/server/workspace-data";
+import { backendFetch } from "@/lib/api-client";
+import { cookies } from "next/headers";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth-session";
 
 export const metadata: Metadata = { title: "AI Crawler Check" };
 
 export default async function CrawlersPage() {
-  const [access, data] = await Promise.all([getCrawlerAccess(), getWorkspaceData()]);
+  const cookieStore = await cookies();
+  const session = await verifySessionToken(cookieStore.get(SESSION_COOKIE)?.value);
 
-  const bots = access?.bots ?? [];
+  const [accessResult, dataResult] = await Promise.all([
+    backendFetch<any>("/api/v1/crawler/robots", {
+      method: "GET",
+      headers: session?.backendToken ? { Authorization: `Bearer ${session.backendToken}` } : {},
+    }),
+    backendFetch<any>("/api/workspace/data", {
+      method: "GET",
+      headers: session?.backendToken ? { Authorization: `Bearer ${session.backendToken}` } : {},
+    }),
+  ]);
+
+  const access = accessResult.ok && accessResult.data ? accessResult.data : null;
+  const data = dataResult.ok && dataResult.data ? dataResult.data : null;
+
+  const bots = (access?.bots ?? []) as { bot?: string; status?: string; rule?: string }[];
   const allowed = bots.filter((b) => b.status === "allowed").length;
   const blocked = bots.filter((b) => b.status === "blocked").length;
   const limited = bots.filter((b) => b.status === "limited").length;
 
-  const crawls = (data?.crawls ?? [])
+  const crawlsRaw: { id?: string; url?: string; status?: string; completedAt?: number | string; createdAt?: number | string; pagesCrawled?: number; result?: { title?: string } }[] = data?.crawls ?? [];
+  const crawls = crawlsRaw
     .slice()
     .sort(
       (a, b) =>
@@ -81,7 +99,7 @@ export default async function CrawlersPage() {
         <CrawlerBots
           bots={
             bots.length
-              ? bots.map((b) => ({ ...b, lastChecked: access?.fetchedAt ? "just now" : "recently" }))
+              ? (bots.map((b) => ({ ...b, lastChecked: access?.fetchedAt ? "just now" : "recently" })) as any)
               : undefined
           }
           domain={access?.domain}
@@ -107,7 +125,7 @@ export default async function CrawlersPage() {
                 id="robots"
                 className="overflow-x-auto rounded-xl border border-line bg-black/40 p-4 font-mono text-[0.7rem] leading-relaxed text-mist"
               >
-                {access.body.split("\n").map((line, i) => {
+                {access.body.split("\n").map((line: string, i: number) => {
                   const cls = line.startsWith("User-agent")
                     ? "text-iris"
                     : line.startsWith("Allow")

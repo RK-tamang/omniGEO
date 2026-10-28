@@ -2,18 +2,29 @@ import type { Metadata } from "next";
 import { Panel } from "@/components/dashboard/panel";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getWorkspaceData } from "@/server/workspace-data";
+import { backendFetch } from "@/lib/api-client";
+import { cookies } from "next/headers";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth-session";
 import { mergeActivity } from "@/lib/workspace-data";
 
 export const metadata: Metadata = { title: "Scheduled Checks" };
 
 export default async function ScheduledChecksPage() {
-  const data = await getWorkspaceData();
+  const cookieStore = await cookies();
+  const session = await verifySessionToken(cookieStore.get(SESSION_COOKIE)?.value);
+
+  const result = await backendFetch<any>("/api/workspace/data", {
+    method: "GET",
+    headers: session?.backendToken ? { Authorization: `Bearer ${session.backendToken}` } : {},
+  });
+
+  const data = result.ok && result.data ? result.data : null;
   const settings = data?.workspace?.settings ?? null;
 
-  const scans = (data?.scans ?? [])
+  const scans: { createdAt?: number | string; status?: string }[] = (data?.scans ?? [])
     .slice()
-    .sort((a, b) => (Date.parse(String(b.createdAt ?? 0)) || 0) - (Date.parse(String(a.createdAt ?? 0)) || 0));  const completed = scans.filter((s) => s.status === "completed").length;
+    .sort((a: { createdAt?: number | string }, b: { createdAt?: number | string }) => (Date.parse(String(b.createdAt ?? 0)) || 0) - (Date.parse(String(a.createdAt ?? 0)) || 0));
+  const completed = scans.filter((s) => s.status === "completed").length;
   const failed = scans.filter((s) => s.status === "failed").length;
   const successRate = scans.length ? Math.round(((scans.length - failed) / scans.length) * 100) : 0;
 

@@ -1,0 +1,6 @@
+[package]
+name = "answerscope-projects"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+answerscope-core = { path = "../core" }

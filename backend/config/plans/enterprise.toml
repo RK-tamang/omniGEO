@@ -1,0 +1,7 @@
+id = "enterprise"
+display_name = "Enterprise"
+publication_status = "custom_quote"
+max_projects = -1
+tracked_prompts = -1
+monitoring_cadence = "custom"
+features = ["audit.basic", "audit.advanced", "audit.schema", "audit.pdf_export", "visibility.observe", "visibility.history", "prompts.track", "competitors.compare", "citations.analyze", "recommendations.ai", "monitoring.scheduled", "reports.white_label", "teams.invite", "api.access"]

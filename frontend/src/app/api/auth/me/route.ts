@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth-session";
-import { backendEnabled, backendMe } from "@/server/backend-client";
+import { SESSION_COOKIE, verifySessionToken } from '@/lib/api-client';
+import { backendMe } from "@/lib/api-client";
 
 export const dynamic = "force-dynamic";
 
@@ -16,21 +16,19 @@ export async function GET() {
     );
   }
 
-  // Prefer live backend identity (authoritative plan/workspace) when available.
-  if (session.backendToken && backendEnabled()) {
+  if (session.backendToken) {
     const result = await backendMe(session.backendToken);
-    if (result.ok && result.data.user) {
-      const user = result.data.user;
+    if (result.ok && (result.data?.user || result.data)) {
+      const user = result.data.user || result.data;
       return NextResponse.json(
         {
           user: {
             id: user.id,
             email: user.email,
-            name: user.name,
-            plan: user.plan,
-            workspaceId: user.workspaceId,
-            workspaceName: user.workspaceName,
-            source: "backend",
+            name: user.name ?? user.display_name ?? session.name,
+            plan: user.plan ?? session.plan,
+            workspaceId: user.workspaceId ?? session.workspaceId,
+            source: "api",
           },
         },
         { headers: { "Cache-Control": "no-store" } },
@@ -45,7 +43,7 @@ export async function GET() {
         name: session.name,
         plan: session.plan,
         workspaceId: session.workspaceId,
-        source: session.backendToken ? "backend-session" : "local",
+        source: session.backendToken ? "api-session" : "local",
       },
     },
     { headers: { "Cache-Control": "no-store" } },

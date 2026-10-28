@@ -1,0 +1,13 @@
+CREATE TYPE membership_role AS ENUM ('owner', 'admin', 'analyst', 'viewer');
+CREATE TABLE users (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), email TEXT NOT NULL UNIQUE, display_name TEXT, password_hash TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), deleted_at TIMESTAMPTZ);
+CREATE TABLE workspaces (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE, name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE TABLE memberships (organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE, user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, role membership_role NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY(organization_id,user_id));
+CREATE TABLE sessions (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, token_hash TEXT NOT NULL UNIQUE, csrf_secret_hash TEXT NOT NULL, expires_at TIMESTAMPTZ NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), revoked_at TIMESTAMPTZ);
+ALTER TABLE projects ADD COLUMN workspace_id UUID REFERENCES workspaces(id) ON DELETE SET NULL;
+CREATE INDEX projects_workspace_idx ON projects(workspace_id);
+CREATE TABLE domains (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE, host TEXT NOT NULL, canonical_origin TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE(project_id,host));
+CREATE TABLE tool_results (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), audit_run_id UUID REFERENCES audit_runs(id) ON DELETE CASCADE, tool_key TEXT NOT NULL, result JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE INDEX tool_results_run_key_idx ON tool_results(audit_run_id, tool_key, created_at DESC);
+CREATE TABLE generated_prompts (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), project_id UUID REFERENCES projects(id) ON DELETE CASCADE, prompt TEXT NOT NULL, category TEXT NOT NULL, source TEXT NOT NULL DEFAULT 'template', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE(project_id,prompt));
+CREATE TABLE opportunities (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), audit_run_id UUID NOT NULL REFERENCES audit_runs(id) ON DELETE CASCADE, priority INTEGER NOT NULL CHECK(priority BETWEEN 1 AND 100), title TEXT NOT NULL, evidence JSONB NOT NULL, recommendation TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE TABLE reports (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), audit_run_id UUID NOT NULL REFERENCES audit_runs(id) ON DELETE CASCADE, format TEXT NOT NULL CHECK(format IN ('json','csv','pdf')), storage_key TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now());

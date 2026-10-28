@@ -1,0 +1,11 @@
+[package]
+name = "answerscope-web-intelligence"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+answerscope-core = { path = "../core" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+url = "2.5"
+ipnet = "2.11"
+quick-xml = "0.37"

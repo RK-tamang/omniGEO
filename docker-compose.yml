@@ -1,9 +1,12 @@
-# OmniGEO — the API backend and the Next.js frontend, together.
+# OmniGEO — Docker Compose deployment.
 #
 #   docker compose up --build
 #
-# The frontend is on http://localhost:3000 and the API on http://localhost:3001.
-# Postgres 18 lives in the `omnigeo-pg` volume.
+# Services:
+#   - db: PostgreSQL 18 database
+#   - api-backend: Rust Axum API backend + crawler worker (port 8080)
+#   - crawler-worker: background crawl job processor (shares the Rust binary)
+#   - frontend: Next.js App Router (port 3000)
 
 services:
   db:
@@ -14,8 +17,6 @@ services:
       POSTGRES_USER: "${POSTGRES_USER:-postgres}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
       POSTGRES_DB: "${POSTGRES_DB:-omnigeo}"
-      # Postgres 18 keeps its data in a major-version directory under
-      # /var/lib/postgresql, so that is what the volume mounts.
       PGDATA: "/var/lib/postgresql/18/docker"
     volumes:
       - omnigeo-pg:/var/lib/postgresql
@@ -27,70 +28,132 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+    networks:
+      - omnigeo-net
 
-  backend:
+  # Rust API backend — audit/analysis tools + GEO crawler worker
+  api-backend:
     build:
       context: ./backend
-    image: omnigeo-backend:latest
-    container_name: omnigeo-backend
+      dockerfile: Dockerfile.api
+    image: answerscope-api:latest
+    container_name: omnigeo-api-backend
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
-      NODE_ENV: production
-      PORT: "3001"
-      HOST: 0.0.0.0
-      DATABASE_URL: "${DATABASE_URL:-postgres://postgres:postgres@db:5432/omnigeo}"
-      # Seed the demo account (demo@omnigeo.ai / demo1234) on first boot.
-      SEED_DEMO: "${SEED_DEMO:-true}"
-      # Where the frontend lives — used for CORS and payment redirects.
-      FRONTEND_URL: "${FRONTEND_URL:-http://localhost:3000}"
-      JWT_SECRET: "${JWT_SECRET:-dev-secret}"
-      COOKIE_SECRET: "${COOKIE_SECRET:-dev-secret}"
-      # The session cookie only carries the Secure flag over HTTPS.
-      COOKIE_SECURE: "${COOKIE_SECURE:-false}"
-      # All proxied requests share one address; keep the limit generous.
-      RATE_LIMIT_MAX: "${RATE_LIMIT_MAX:-1000}"
-      TRUST_PROXY: "${TRUST_PROXY:-false}"
-      # Provider credentials.
+      APP_ENV: "${APP_ENV:-development}"
+      API_BIND_ADDR: "0.0.0.0:8080"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-omnigeo}"
+      DATABASE_MAX_CONNECTIONS: "${DATABASE_MAX_CONNECTIONS:-10}"
+      DB_CONNECT_TIMEOUT_SECS: "${DB_CONNECT_TIMEOUT_SECS:-10}"
+      DB_ACQUIRE_TIMEOUT_SECS: "${DB_ACQUIRE_TIMEOUT_SECS:-5}"
+      READINESS_TIMEOUT_MS: "${READINESS_TIMEOUT_MS:-2000}"
+      SHUTDOWN_TIMEOUT_SECS: "${SHUTDOWN_TIMEOUT_SECS:-30}"
+      LOG_FORMAT: "${LOG_FORMAT:-json}"
+      RUST_LOG: "${RUST_LOG:-answerscope_api=info,answerscope_worker=info,tower_http=info}"
+      FRONTEND_ORIGIN: "${FRONTEND_URL:-http://localhost:3000}"
+      APP_BASE_URL: "${FRONTEND_URL:-http://localhost:3000}"
+      AUTH_COOKIE_SECURE: "${AUTH_COOKIE_SECURE:-false}"
+      REPORT_STORAGE_DIR: "/data/reports"
+      # WorkOS AuthKit
+      WORKOS_CLIENT_ID: "${WORKOS_CLIENT_ID:-}"
+      WORKOS_API_KEY: "${WORKOS_API_KEY:-}"
+      WORKOS_REDIRECT_URI: "${WORKOS_REDIRECT_URI:-http://localhost:8080/api/v1/auth/workos/callback}"
+      RESEND_API_KEY: "${RESEND_API_KEY:-}"
+      EMAIL_FROM: "${EMAIL_FROM:-OmniGEO <no-reply@omnigeo.example>}"
+      # DataForSEO
       DATAFORSEO_LOGIN: "${DATAFORSEO_LOGIN:-}"
       DATAFORSEO_PASSWORD: "${DATAFORSEO_PASSWORD:-}"
+      DATAFORSEO_ESTIMATED_COST_MICRO_USD: "${DATAFORSEO_ESTIMATED_COST_MICRO_USD:-500}"
+      # AI Visibility Providers
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
-      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      OPENAI_VISIBILITY_MODEL: "${OPENAI_VISIBILITY_MODEL:-gpt-4o-mini}"
+      OPENAI_ESTIMATED_COST_MICRO_USD: "${OPENAI_ESTIMATED_COST_MICRO_USD:-500}"
+      GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
+      GEMINI_VISIBILITY_MODEL: "${GEMINI_VISIBILITY_MODEL:-gemini-1.5-pro}"
+      GEMINI_ESTIMATED_COST_MICRO_USD: "${GEMINI_ESTIMATED_COST_MICRO_USD:-500}"
+      PERPLEXITY_API_KEY: "${PERPLEXITY_API_KEY:-}"
+      PERPLEXITY_VISIBILITY_MODEL: "${PERPLEXITY_VISIBILITY_MODEL:-sonar}"
+      PERPLEXITY_ESTIMATED_COST_MICRO_USD: "${PERPLEXITY_ESTIMATED_COST_MICRO_USD:-500}"
+      SERPAPI_API_KEY: "${SERPAPI_API_KEY:-}"
+      SERPAPI_ESTIMATED_COST_MICRO_USD: "${SERPAPI_ESTIMATED_COST_MICRO_USD:-500}"
+      PAGESPEED_API_KEY: "${PAGESPEED_API_KEY:-}"
+      AI_VISIBILITY_LIVE_ENABLED: "${AI_VISIBILITY_LIVE_ENABLED:-false}"
+      AI_VISIBILITY_MAX_CONCURRENT_REQUESTS: "${AI_VISIBILITY_MAX_CONCURRENT_REQUESTS:-4}"
+      AI_VISIBILITY_DAILY_SPEND_LIMIT_USD: "${AI_VISIBILITY_DAILY_SPEND_LIMIT_USD:-5}"
     ports:
-      - "3001:3001"
+      - "8080:8080"
+    volumes:
+      - answerscope-reports:/data/reports
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/ready"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 40s
+      start_period: 60s
+    stop_grace_period: 40s
+    networks:
+      - omnigeo-net
 
+  # Crawler worker — background crawl job processor (shares the Rust binary)
+  crawler-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.api
+    image: answerscope-api:latest
+    container_name: omnigeo-crawler-worker
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_ENV: "${APP_ENV:-development}"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-omnigeo}"
+      DATABASE_MAX_CONNECTIONS: "${DATABASE_MAX_CONNECTIONS:-10}"
+      DB_CONNECT_TIMEOUT_SECS: "${DB_CONNECT_TIMEOUT_SECS:-10}"
+      DB_ACQUIRE_TIMEOUT_SECS: "${DB_ACQUIRE_TIMEOUT_SECS:-5}"
+      SHUTDOWN_TIMEOUT_SECS: "${SHUTDOWN_TIMEOUT_SECS:-30}"
+      LOG_FORMAT: "${LOG_FORMAT:-json}"
+      RUST_LOG: "${RUST_LOG:-answerscope_api=info,answerscope_worker=info,tower_http=info}"
+      REPORT_STORAGE_DIR: "/data/reports"
+    command: ["answerscope-worker"]
+    volumes:
+      - answerscope-reports:/data/reports
+    stop_grace_period: 40s
+    networks:
+      - omnigeo-net
+
+  # Frontend — Next.js App Router (port 3000)
   frontend:
     build:
       context: ./frontend
-      args:
-        BACKEND_URL: http://backend:3001
-    image: omnigeo-frontend:latest
+      dockerfile: Dockerfile
+    image: answerscope-frontend:latest
     container_name: omnigeo-frontend
     restart: unless-stopped
     depends_on:
-      backend:
+      api-backend:
         condition: service_healthy
     environment:
-      NODE_ENV: production
-      PORT: "3000"
-      HOSTNAME: 0.0.0.0
-      # The server-side proxy routes talk to the backend over the compose
-      # network — never through the published port.
-      BACKEND_URL: http://backend:3001
-      OMNI_BACKEND: "on"
+      NODE_ENV: "production"
+      BACKEND_URL: "http://api-backend:8080"
+      NEXT_PUBLIC_BACKEND_URL: "http://api-backend:8080"
+      NEXT_PUBLIC_APP_URL: "${FRONTEND_URL:-http://localhost:3000}"
       AUTH_SECRET: "${AUTH_SECRET:-omnigeo-dev-secret-change-in-production}"
       AUTH_COOKIE_SECURE: "${AUTH_COOKIE_SECURE:-false}"
-      NEXT_PUBLIC_APP_URL: "${FRONTEND_URL:-http://localhost:3000}"
+      WORKOS_CLIENT_ID: "${WORKOS_CLIENT_ID:-}"
+      WORKOS_API_KEY: "${WORKOS_API_KEY:-}"
     ports:
       - "3000:3000"
+    networks:
+      - omnigeo-net
+
+networks:
+  omnigeo-net:
+    driver: bridge
 
 volumes:
   omnigeo-pg:
+  answerscope-reports:

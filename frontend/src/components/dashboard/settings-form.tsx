@@ -3,10 +3,24 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import type { Settings } from "@/server/db";
 import { plans } from "@/lib/content";
 import { BUSINESS_CATEGORIES } from "@/lib/business";
 import { formatINR } from "@/lib/format";
+
+type Settings = {
+  brandName?: string;
+  category?: string;
+  workspaceName: string;
+  whitelist: string[];
+  timezone: string;
+  locale: string;
+  competitors: string;
+  runDay: string;
+  digest: string;
+  emailDigest: boolean;
+  criticalAlerts: boolean;
+  productUpdates: boolean;
+};
 
 const planPrice = (plan: string) => plans.find((p) => p.name === plan)?.monthly ?? 0;
 

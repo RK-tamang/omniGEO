@@ -1,0 +1,8 @@
+id = "starter"
+display_name = "Starter"
+publication_status = "internal_unvalidated_economics"
+suggested_monthly_price_usd = 19
+max_projects = 1
+tracked_prompts = 20
+monitoring_cadence = "weekly"
+features = ["audit.basic", "audit.schema", "audit.pdf_export", "visibility.observe", "visibility.history", "prompts.track"]

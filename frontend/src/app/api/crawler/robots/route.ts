@@ -1,33 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import { backendEnabled, backendFetch } from "@/server/backend-client";
-import { getAuthUserWithBackendToken } from "@/server/auth-backend";
+import { cookies } from "next/headers";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth-session";
+import { backendFetch } from "@/lib/api-client";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Live AI crawler access for a domain.
- *
- * The backend fetches the real robots.txt and reports which answer-engine bots
- * can reach the site. Nothing is estimated here.
- */
 export async function GET(request: NextRequest) {
-  const { backendToken } = await getAuthUserWithBackendToken();
-  if (!backendToken || !backendEnabled()) {
-    return NextResponse.json({ error: "Backend unavailable" }, { status: 503 });
+  const cookieStore = await cookies();
+  const session = await verifySessionToken(cookieStore.get(SESSION_COOKIE)?.value);
+  if (!session) {
+    return NextResponse.json({ found: false, bots: [] }, { headers: { "Cache-Control": "no-store" } });
   }
 
   const domain = request.nextUrl.searchParams.get("domain");
   const path = domain
-    ? `/api/crawler/robots?domain=${encodeURIComponent(domain)}`
-    : "/api/crawler/robots";
+    ? `/api/v1/crawler/robots?domain=${encodeURIComponent(domain)}`
+    : "/api/v1/crawler/robots";
 
   const proxied = await backendFetch<Record<string, unknown>>(path, {
     method: "GET",
-    token: backendToken,
+    headers: session.backendToken ? { Authorization: `Bearer ${session.backendToken}` } : {},
   });
 
   if (!proxied.ok) {
-    return NextResponse.json({ error: proxied.error }, { status: proxied.status || 502 });
+    return NextResponse.json({ found: false, bots: [] }, { headers: { "Cache-Control": "no-store" } });
   }
 
   return NextResponse.json(proxied.data, { headers: { "Cache-Control": "no-store" } });

@@ -14,11 +14,13 @@ export function DashboardHeader({
   title,
   sub,
   aside,
+  accent,
   level = 1,
 }: {
   title: string;
   sub?: ReactNode;
   aside?: ReactNode;
+  accent?: string;
   level?: 1 | 2 | 3;
 }) {
   const Heading = `h${level}` as "h1" | "h2" | "h3";
@@ -27,15 +29,16 @@ export function DashboardHeader({
   return (
     <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
       <div>
-        <Heading className={`${size} font-semibold tracking-tight text-chalk`}>{title}</Heading>
-        {sub && <p className="mt-1 text-sm text-mist">{sub}</p>}
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-line px-2.5 py-0.5 font-mono text-[0.55rem] uppercase tracking-widest text-mist-dim">{accent ? <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 9999, background: accent }} /> : <span aria-hidden>•</span>}</div>
+        <Heading className={`${size} font-semibold tracking-tight text-chalk mt-1 mb-1`}>{title}</Heading>
+        {sub && <p className="text-sm text-mist">{sub}</p>}
       </div>
       {aside && <div className="flex items-center gap-2">{aside}</div>}
     </div>
   );
 }
 
-export function StatusChip({ status }: { status: "Critical" | "Warning" | "Notice" | "Good" | "Published" | "In review" | "Draft" | "cited" | "mentioned" | "missing" }) {
+export function StatusChip({ status }: { status: "Critical" | "Warning" | "Notice" | "Good" | "Published" | "In review" | "Draft" | "cited" | "mentioned" | "missing" | "published" | "open" | "good" | "warning" | "pending" | "cancelled" | "completed" | "failed" }) {
   const styles = {
     Critical: "bg-coral/15 text-coral border-coral/30",
     Warning: "bg-gold/15 text-gold border-gold/30",
@@ -47,6 +50,14 @@ export function StatusChip({ status }: { status: "Critical" | "Warning" | "Notic
     cited: "bg-mint/15 text-mint border-mint/30",
     mentioned: "bg-aqua/15 text-aqua border-aqua/30",
     missing: "bg-coral/15 text-coral border-coral/30",
+    published: "bg-mint/15 text-mint border-mint/30",
+    open: "bg-aqua/15 text-aqua border-aqua/30",
+    good: "bg-mint/15 text-mint border-mint/30",
+    warning: "bg-gold/15 text-gold border-gold/30",
+    pending: "bg-mist/15 text-mist border-mist/30",
+    cancelled: "bg-mist/15 text-mist border-mist/30",
+    completed: "bg-mint/15 text-mint border-mint/30",
+    failed: "bg-coral/15 text-coral border-coral/30",
   };
   return (
     <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-mono text-[0.55rem] uppercase tracking-widest ${styles[status]}`}>
@@ -68,6 +79,7 @@ export function Panel({
   title,
   sub,
   aside,
+  accent,
   level = 1,
 }: {
   children: ReactNode;
@@ -75,12 +87,13 @@ export function Panel({
   title?: string;
   sub?: ReactNode;
   aside?: ReactNode;
+  accent?: string;
   level?: 1 | 2 | 3;
 }) {
   return (
     <section className={`bg-surface/60 backdrop-blur-xl rounded-2xl elevate p-6 ${className}`}>
       {(title || sub || aside) && (
-        <DashboardHeader title={title || ""} sub={sub} aside={aside} level={level} />
+        <DashboardHeader title={title || ""} sub={sub} aside={aside} accent={accent} level={level} />
       )}
       {children}
     </section>

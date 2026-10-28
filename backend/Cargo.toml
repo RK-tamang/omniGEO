@@ -1,0 +1,9 @@
+[workspace]
+resolver = "2"
+members = ["apps/api", "apps/worker", "crates/*"]
+
+[workspace.package]
+edition = "2024"
+license = "UNLICENSED"
+version = "0.1.0"
+

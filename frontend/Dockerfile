@@ -18,7 +18,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # The backend URL is read at request time by the server-side proxy routes, so
 # it is also set at runtime by compose. Passing it here keeps a build that
 # prerenders against the same target.
-ARG BACKEND_URL=http://backend:3001
+ARG BACKEND_URL=http://api-backend:8080
 ENV BACKEND_URL=$BACKEND_URL
 
 RUN npm run build

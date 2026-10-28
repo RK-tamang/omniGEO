@@ -28,7 +28,6 @@ export const footerLinks = {
     { label: "About", href: "/about" },
     { label: "Pricing", href: "/pricing" },
     { label: "Contact", href: "/contact" },
-    { label: "Book a demo", href: "/contact?intent=demo" },
     { label: "Dashboard", href: "/dashboard" },
   ],
 } as const;

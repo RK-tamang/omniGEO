@@ -1,0 +1,8 @@
+id = "free"
+display_name = "Free"
+publication_status = "internal"
+max_projects = 1
+audits_per_month = 3
+max_pages_per_audit = 50
+paid_ai_observations = false
+features = ["audit.basic", "audit.schema", "audit.pdf_export"]

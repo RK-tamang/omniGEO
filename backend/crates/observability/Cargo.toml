@@ -1,0 +1,15 @@
+[package]
+name = "answerscope-observability"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+answerscope-config = { path = "../config" }
+answerscope-error = { path = "../error" }
+anyhow = "1.0"
+axum = "0.8"
+http = "1.3"
+tokio = { version = "1.43", features = ["signal", "time", "rt"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+uuid = { version = "1.12", features = ["v4"] }

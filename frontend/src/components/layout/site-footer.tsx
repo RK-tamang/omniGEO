@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { features } from "@/lib/content";
 import { footerLinks } from "@/lib/site";
-import { Logo } from "@/components/layout/logo";
 
 export function SiteFooter() {
   return (
@@ -9,9 +8,11 @@ export function SiteFooter() {
       <div className="aurora -top-40 left-1/4 size-[480px] bg-iris/10" aria-hidden />
       <div className="container-page relative py-16">
         <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
-          <div className="max-w-sm">
-            <Logo />
-            <p className="mt-4 text-sm leading-relaxed text-mist">
+            <div className="max-w-sm">
+              <Link href="/" className="font-display text-xl italic text-chalk" aria-label="OmniGEO home">
+                OmniGEO
+              </Link>
+              <p className="mt-4 text-sm leading-relaxed text-mist">
               AI search visibility and SEO in one platform. Know what ChatGPT says about you — and change it.
             </p>
             <p className="mt-6 text-xs text-mist-dim">Built by Optivus Technologies</p>
@@ -26,7 +27,6 @@ export function SiteFooter() {
               { label: "Free AI scan", href: "/scan" },
               { label: "RSS feed", href: "/blog/rss.xml" },
               { label: "FAQ", href: "/#faq" },
-              { label: "Book a demo", href: "/contact?intent=demo" },
               { label: "Contact", href: "/contact" },
             ]}
           />

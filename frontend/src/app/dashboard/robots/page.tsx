@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Panel } from "@/components/dashboard/panel";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getCrawlerAccess } from "@/server/workspace-data";
+import { backendFetch } from "@/lib/api-client";
+import { cookies } from "next/headers";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth-session";
 
 export const metadata: Metadata = { title: "Robots & Crawlability" };
 
@@ -13,7 +15,15 @@ const accessStyles = {
 } as const;
 
 export default async function RobotsPage() {
-  const access = await getCrawlerAccess();
+  const cookieStore = await cookies();
+  const session = await verifySessionToken(cookieStore.get(SESSION_COOKIE)?.value);
+
+  const result = await backendFetch<any>("/api/v1/crawler/robots", {
+    method: "GET",
+    headers: session?.backendToken ? { Authorization: `Bearer ${session.backendToken}` } : {},
+  });
+
+  const access = result.ok && result.data ? result.data : null;
   const bots = access?.bots ?? [];
 
   return (
@@ -30,7 +40,7 @@ export default async function RobotsPage() {
               title="No robots.txt read yet"
               sub={
                 access?.found === false
-                  ? `${access.domain} is not serving a robots.txt. Without one every crawler is allowed, but you also lose the sitemap pointer.`
+                  ? `${access.domain ?? "This domain"} is not serving a robots.txt. Without one every crawler is allowed, but you also lose the sitemap pointer.`
                   : "Set a domain on the workspace and the check reads its live robots.txt."
               }
             />
@@ -46,13 +56,13 @@ export default async function RobotsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {bots.map((b) => (
+                  {bots.map((b: { bot?: string; status?: string; rule?: string }) => (
                     <tr key={b.bot} className="border-b border-line/50 hover:bg-surface-1">
                       <td className="px-4 py-3 font-medium text-chalk">{b.bot}</td>
                       <td className="px-4 py-3 text-center font-mono text-sm text-mist">{b.bot}</td>
                       <td className="px-4 py-3 text-center">
                         <span
-                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[0.5rem] uppercase tracking-widest ${accessStyles[b.status]}`}
+                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[0.5rem] uppercase tracking-widest ${accessStyles[b.status as keyof typeof accessStyles] ?? ""}`}
                         >
                           {b.status === "limited" ? "partly blocked" : b.status}
                         </span>

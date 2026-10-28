@@ -11,7 +11,10 @@ import { CrawlerBots } from "@/components/dashboard/crawler-bots";
 import { ContentTable } from "@/components/dashboard/content-table";
 import { PromptMatrix } from "@/components/dashboard/prompt-matrix";
 import { EmptyState } from "@/components/ui/empty-state";
-import { DASHBOARD_BLOCKS } from "@/lib/dashboard-layout";
+import {
+  DASHBOARD_BLOCKS,
+  accentForBlock,
+} from "@/lib/dashboard-layout";
 import { useWorkspaceData, type WorkspaceData } from "@/hooks/use-workspace-data";
 import {
   mergeActivity,
@@ -151,7 +154,7 @@ function KpisBlock({ data }: { data: WorkspaceData | null }) {
 function TrendBlock({ data }: { data: WorkspaceData | null }) {
   const { series, labels } = mergeVisibilityTrend(data);
   return (
-    <Panel level={2} title="Visibility trend" sub="Mention rate across every tracked engine, from your own scans">
+    <Panel level={2} title="Visibility trend" sub="Mention rate across every tracked engine, from your own scans" accent={accentForBlock("trend")}>
       <VisibilityTrend series={series} labels={labels} />
     </Panel>
   );
@@ -163,7 +166,7 @@ function SovBlock({ data }: { data: WorkspaceData | null }) {
 
   if (sov.length === 0) {
     return (
-      <Panel level={2} title="Share of voice" sub="Weighted by search volume across tracked terms">
+      <Panel level={2} title="Share of voice" sub="Weighted by search volume across tracked terms" accent={accentForBlock("sov")}>
         <EmptyState
           title="No competitors tracked yet"
           sub="Add the brands buyers compare you against and this shows who takes the answers."
@@ -174,7 +177,7 @@ function SovBlock({ data }: { data: WorkspaceData | null }) {
 
   return (
     <div className="grid gap-6 @4xl:grid-cols-[1fr_1.2fr]">
-      <Panel level={2} title="Share of voice" sub="Weighted by search volume across tracked terms">
+      <Panel level={2} title="Share of voice" sub="Weighted by search volume across tracked terms" accent={accentForBlock("sov")}>
         <div className="flex flex-col items-center gap-6">
           <DonutGauge value={sov[0]?.value ?? 0} label="Your share" />
           <Bars
@@ -187,7 +190,7 @@ function SovBlock({ data }: { data: WorkspaceData | null }) {
           />
         </div>
       </Panel>
-      <Panel level={2} title="Engine mention rate" sub="Each engine reads the web differently">
+      <Panel level={2} title="Engine mention rate" sub="Each engine reads the web differently" accent={accentForBlock("sov")}>
         {mention.length === 0 ? (
           <EmptyState title="No prompt results yet" sub="Run a visibility scan to populate this." />
         ) : (
@@ -220,7 +223,7 @@ function PromptCoverageBlock({ data }: { data: WorkspaceData | null }) {
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
 
   return (
-    <Panel level={2} title="Prompt coverage" sub="Every tracked prompt, across all four engines">
+    <Panel level={2} title="Prompt coverage" sub="Every tracked prompt, across all four engines" accent={accentForBlock("prompt-coverage")}>
       {rows.length === 0 ? (
         <EmptyState
           title="No prompts tracked yet"
@@ -267,7 +270,7 @@ function AuditScoreBlock({ data }: { data: WorkspaceData | null }) {
 
   if (live.checks === 0) {
     return (
-      <Panel level={2} title="Site health" sub="Overall score across every audit category">
+      <Panel level={2} title="Site health" sub="Overall score across every audit category" accent={accentForBlock("audit-score")}>
         <EmptyState
           title="No audit run yet"
           sub="Run a site audit and the health score, category breakdown and check results land here."
@@ -278,7 +281,7 @@ function AuditScoreBlock({ data }: { data: WorkspaceData | null }) {
 
   return (
     <div className="grid gap-6 @4xl:grid-cols-[1fr_1.3fr]">
-      <Panel level={2} title="Site health" sub="Overall score across every audit category">
+      <Panel level={2} title="Site health" sub="Overall score across every audit category" accent={accentForBlock("audit-score")}>
         <div className="flex flex-col items-center gap-5">
           <DonutGauge value={live.score} label="Health score" />
           <div className="w-full space-y-3">
@@ -294,7 +297,7 @@ function AuditScoreBlock({ data }: { data: WorkspaceData | null }) {
           </div>
         </div>
       </Panel>
-      <Panel level={2} title="Checks" sub={`${live.passed} of ${live.checks} checks passing`}>
+      <Panel level={2} title="Checks" sub={`${live.passed} of ${live.checks} checks passing`} accent={accentForBlock("audit-score")}>
         <ColumnChart
           items={[
             { label: "Passed", count: live.passed },
@@ -312,7 +315,7 @@ function AuditScoreBlock({ data }: { data: WorkspaceData | null }) {
 
 function AuditIssuesBlock({ data }: { data: WorkspaceData | null }) {
   return (
-    <Panel level={2} title="Open audit issues" sub="Grouped by severity, with the fix for each">
+    <Panel level={2} title="Open audit issues" sub="Grouped by severity, with the fix for each" accent={accentForBlock("audit-issues")}>
       <IssuesList issues={mergeAudit(data).issues} />
     </Panel>
   );
@@ -320,7 +323,7 @@ function AuditIssuesBlock({ data }: { data: WorkspaceData | null }) {
 
 function CrawlerAccessBlock() {
   return (
-    <Panel level={2} title="AI crawler access" sub="Which answer engines can read your pages">
+    <Panel level={2} title="AI crawler access" sub="Which answer engines can read your pages" accent={accentForBlock("crawler-access")}>
       <CrawlerBots />
     </Panel>
   );
@@ -334,7 +337,7 @@ function CompetitorCompareBlock({ data }: { data: WorkspaceData | null }) {
 
   if (live.length === 0) {
     return (
-      <Panel level={2} title="Competitor comparison" sub="Share of voice, mention rate and citation reach per brand">
+      <Panel level={2} title="Competitor comparison" sub="Share of voice, mention rate and citation reach per brand" accent={accentForBlock("competitor-compare")}>
         <EmptyState
           title="No competitors tracked yet"
           sub="Add the brands buyers compare you against and this table fills in from their tracked results."
@@ -361,8 +364,8 @@ function CompetitorCompareBlock({ data }: { data: WorkspaceData | null }) {
   ];
 
   return (
-    <Panel level={2} title="Competitor comparison" sub="Share of voice, mention rate and citation reach per brand">
-      <div className="grid gap-3 @sm:grid-cols-2">
+      <Panel level={2} title="Competitor comparison" sub="Share of voice, mention rate and citation reach per brand" accent={accentForBlock("competitor-compare")}>
+        <div className="grid gap-3 @sm:grid-cols-2">
         {brands.map((b) => (
           <div
             key={b.name}
@@ -400,7 +403,7 @@ function CompetitorCompareBlock({ data }: { data: WorkspaceData | null }) {
 function ContentGapsBlock({ data }: { data: WorkspaceData | null }) {
   const gaps = mergeContentGaps(data);
   return (
-    <Panel level={2} title="Content gaps" sub="Topics competitors own that you do not">
+    <Panel level={2} title="Content gaps" sub="Topics competitors own that you do not" accent={accentForBlock("content-gaps")}>
       {gaps.length === 0 ? (
         <EmptyState
           title="No content gaps detected"
@@ -430,7 +433,7 @@ function ContentGapsBlock({ data }: { data: WorkspaceData | null }) {
 function ContentPipelineBlock({ data }: { data: WorkspaceData | null }) {
   const items = mergeContentItems(data);
   return (
-    <Panel level={2} title="Content pipeline" sub="Drafts, reviews and published pieces">
+    <Panel level={2} title="Content pipeline" sub="Drafts, reviews and published pieces" accent={accentForBlock("content-pipeline")}>
       <ContentTable items={items} />
       {items.length > 0 && (
         <p className="mt-4 text-sm text-mist">
@@ -444,7 +447,7 @@ function ContentPipelineBlock({ data }: { data: WorkspaceData | null }) {
 function OpportunitiesBlock({ data }: { data: WorkspaceData | null }) {
   const opportunities = mergeOpportunities(data);
   return (
-    <Panel level={2} title="Top opportunities" sub="Ranked by impact and effort — start at the top">
+    <Panel level={2} title="Top opportunities" sub="Ranked by impact and effort — start at the top" accent={accentForBlock("opportunities")}>
       {opportunities.length === 0 ? (
         <EmptyState
           title="No open opportunities"
@@ -491,7 +494,7 @@ function AlertsBlock({ data }: { data: WorkspaceData | null }) {
   }));
 
   return (
-    <Panel level={2} title="Open alerts" sub="Everything that needs a decision">
+    <Panel level={2} title="Open alerts" sub="Everything that needs a decision" accent={accentForBlock("alerts")}>
       {alerts.length === 0 ? (
         <EmptyState
           title="No open alerts"
@@ -526,7 +529,7 @@ function ScheduleBlock({ data }: { data: WorkspaceData | null }) {
   const configured = rows.filter((r) => r.cadence);
 
   return (
-    <Panel level={2} title="Scheduled checks" sub="What runs next, and when">
+    <Panel level={2} title="Scheduled checks" sub="What runs next, and when" accent={accentForBlock("schedule")}>
       {configured.length === 0 ? (
         <EmptyState
           title="Nothing scheduled"
@@ -557,7 +560,7 @@ function ScheduleBlock({ data }: { data: WorkspaceData | null }) {
 function ActivityBlock({ data }: { data: WorkspaceData | null }) {
   const activity = mergeActivity(data);
   return (
-    <Panel level={2} title="Latest activity" sub="Recent scans, optimizations and alerts">
+    <Panel level={2} title="Latest activity" sub="Recent scans, optimizations and alerts" accent={accentForBlock("activity")}>
       {activity.length === 0 ? (
         <EmptyState
           title="No activity yet"

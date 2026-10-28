@@ -1,0 +1,7 @@
+[package]
+name = "answerscope-metering"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+answerscope-core = { path = "../core" }
+thiserror = "2.0"

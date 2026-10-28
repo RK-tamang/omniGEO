@@ -1,0 +1,14 @@
+[package]
+name = "answerscope-geo-audit"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+answerscope-core = { path = "../core" }
+answerscope-web-intelligence = { path = "../web-intelligence" }
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+scraper = "0.22"
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono"] }
+thiserror = "2.0"
+uuid = { version = "1.12", features = ["v4", "serde"] }

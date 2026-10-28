@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Button, ButtonArrow } from "@/components/ui/button";
+import { ButtonArrow } from "@/components/ui/button";
 import { Reveal } from "@/components/ui/reveal";
 
 export function CtaBand() {
@@ -25,9 +25,6 @@ export function CtaBand() {
               <ButtonArrow size="lg" href="/scan">
                 Analyze my site
               </ButtonArrow>
-              <Button size="lg" variant="secondary" href="/contact?intent=demo">
-                Book a demo
-              </Button>
             </div>
             <p className="mt-6 font-mono text-xs tracking-wide text-mist-dim">
               No credit card · Results in 10 minutes · Cancel anytime

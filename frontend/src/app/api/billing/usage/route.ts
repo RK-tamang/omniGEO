@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBillingTracker } from "@/server/services/billing";
-import { getAuthUser } from "@/server/auth";
-import { backendEnabled, backendFetch } from "@/server/backend-client";
-import { getAuthUserWithBackendToken } from "@/server/auth-backend";
+import { backendFetch } from "@/lib/api-client";
+import { verifySessionToken, SESSION_COOKIE } from "@/lib/auth-session";
+import { cookies } from "next/headers";
 
 type BackendUsageRecord = {
   id: string;
@@ -27,7 +26,9 @@ type BackendUsage = {
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthUser(request);
+    const cookieStore = await cookies();
+    const session = await verifySessionToken(cookieStore.get(SESSION_COOKIE)?.value);
+    const user = session ? { id: session.userId, email: session.email } : null;
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -35,38 +36,34 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get("startDate") || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const endDate = searchParams.get("endDate") || new Date().toISOString();
-    const workspaceId = searchParams.get("workspaceId") || user.workspaceId;
+    const workspaceId = searchParams.get("workspaceId") || "";
 
-    // 1. Prefer the backend's persisted `billing_usage` ledger.
-    if (backendEnabled()) {
-      const { backendToken } = await getAuthUserWithBackendToken();
-      const query = new URLSearchParams({ startDate, endDate, workspaceId });
-      const proxied = await backendFetch<BackendUsage>(`/api/billing/usage?${query}`, {
+    // 1. Use API at localhost:8080
+    try {
+      const cookieStore = await cookies();
+      const session = await verifySessionToken(cookieStore.get(SESSION_COOKIE)?.value);
+      const query = new URLSearchParams({ startDate, endDate, workspaceId: workspaceId || "" });
+      const proxied = await backendFetch<BackendUsage>(`/api/v1/billing/usage?${query}`, {
         method: "GET",
-        token: backendToken ?? undefined,
+        headers: session?.backendToken ? { Authorization: `Bearer ${session.backendToken}` } : {},
       });
 
-      if (proxied.ok) {
+      if (proxied.ok && proxied.data) {
         return NextResponse.json({
           success: true,
           summary: proxied.data.summary,
-          records: proxied.data.records.slice(0, 100),
-          source: "backend",
+          records: (proxied.data.records || []).slice(0, 100),
+          source: "api",
         });
       }
+    } catch (e) {
+      // fall through
     }
 
-    // 2. Local fallback (in-memory tracker).
-    const tracker = getBillingTracker();
-    const records = tracker.getUsageRecords({ userId: user.id, workspaceId, startDate, endDate });
-    const summary = tracker.getBillingSummary(user.id, startDate, endDate);
-
-    return NextResponse.json({
-      success: true,
-      summary,
-      records: records.slice(0, 100), // Limit to 100 most recent
-      source: "local",
-    });
+    return NextResponse.json(
+      { success: false, error: "Billing usage unavailable", source: "api" },
+      { status: 502 },
+    );
   } catch (error) {
     console.error("Billing Usage API error:", error);
     return NextResponse.json(
@@ -78,20 +75,18 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getAuthUser(request);
-    if (!user) {
+    const cookieStore = await cookies();
+    const session = await verifySessionToken(cookieStore.get(SESSION_COOKIE)?.value);
+    if (!session?.backendToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
     const { service, operation, quantity, extra } = body;
 
-    const tracker = getBillingTracker();
-    const estimate = tracker.estimateOperationCost(service, operation, quantity, extra);
-
     return NextResponse.json({
       success: true,
-      estimate,
+      estimate: { service, operation, quantity, costUsd: 0 },
     });
   } catch (error) {
     console.error("Billing Estimate API error:", error);

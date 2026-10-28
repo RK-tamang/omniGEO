@@ -1,90 +1,71 @@
 "use client";
 
-import { Panel } from "@/components/dashboard/panel";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
+import { DashboardHeader, Panel } from "@/components/dashboard/panel";
 import { EmptyState } from "@/components/ui/empty-state";
-import { useWorkspaceData } from "@/hooks/use-workspace-data";
-import { ENGINE_KEYS, ENGINE_LABELS } from "@/lib/dashboard-config";
-import { mergePrompts } from "@/lib/workspace-data";
+import { Button } from "@/components/ui/button";
+import { KpiCard } from "@/components/dashboard/kpi-card";
+import api from "@/lib/api-client";
 
-export default function BrandMentionsPage() {
-  const { data } = useWorkspaceData();
-  const prompts = mergePrompts(data);
+export default function BrandIntelligencePage() {
+  const [loading, setLoading] = useState(true);
+  const [overview, setOverview] = useState<any>(null);
 
-  const rows = ENGINE_KEYS.map((key) => {
-    const cited = prompts.filter((p) => p.engines[key] === "cited").length;
-    const mentioned = prompts.filter((p) => p.engines[key] === "mentioned").length;
-    const sentiments = prompts
-      .filter((p) => p.engines[key] !== "missing")
-      .map((p) => p.sentiment);
-    const positive = sentiments.filter((s) => s === "Positive").length;
-    const neutral = sentiments.filter((s) => s === "Neutral").length;
-    const risk = sentiments.filter((s) => s === "Risk").length;
-    const total = sentiments.length || 1;
+  useEffect(() => {
+    api.getOverview().then((res) => {
+      if (res.ok) setOverview(res.data);
+      setLoading(false);
+    });
+  }, []);
 
-    return {
-      key,
-      engine: ENGINE_LABELS[key],
-      cited,
-      mentions: cited + mentioned,
-      sentiment:
-        positive >= total / 2 ? "Positive" : risk >= total / 2 ? "Risk" : "Neutral",
-      seen: prompts.some((p) => p.engines[key] !== "missing") ? "tracked" : "never",
-    };
-  }).filter((r) => r.mentions > 0);
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <DashboardHeader title="Brand Intelligence" sub="Track brand mentions, entity consistency, and product representation in AI answers" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <KpiCard key={i} label="Loading..." value="--" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <Panel title="Brand Mention Monitor" sub="Find direct and indirect brand mentions across all AI answer engines">
-        <div className="space-y-4">
-          <div className="flex items-center gap-4">
-            <Button>Run Mention Scan</Button>
-            <Button variant="secondary">Configure Alerts</Button>
+      <DashboardHeader
+        title="Brand Intelligence"
+        sub="Track brand mentions, entity consistency, and product representation in AI answers"
+        aside={<Button size="sm">Add Brand</Button>}
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Panel title="Brand Mentions" level={2}>
+          <div className="h-[200px] flex flex-col items-center justify-center">
+            <p className="font-mono text-4xl font-normal italic text-chalk">{overview?.metrics?.brand_mentions ?? "0"}</p>
+            <p className="mt-2 text-xs text-mist-dim">Brand mentions found</p>
           </div>
-          {rows.length === 0 ? (
-            <EmptyState
-              title="No mentions recorded yet"
-              sub="Mentions are written when a visibility scan checks your tracked prompts against each engine."
-            />
-          ) : (
-            <div className="rounded-xl border border-line overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-surface-1 border-b border-line">
-                    <th className="px-4 py-3 text-left text-sm font-medium text-mist">Engine</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-mist">Citations</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-mist">Mentions</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-mist">Sentiment</th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-mist">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.key} className="border-b border-line/50 hover:bg-surface-1">
-                      <td className="px-4 py-3 font-medium text-chalk">{r.engine}</td>
-                      <td className="px-4 py-3 text-center text-sm text-chalk">{r.cited}</td>
-                      <td className="px-4 py-3 text-center text-sm text-chalk">{r.mentions}</td>
-                      <td className="px-4 py-3 text-center">
-                        <span
-                          className={`text-sm font-medium ${
-                            r.sentiment === "Positive"
-                              ? "text-mint"
-                              : r.sentiment === "Risk"
-                                ? "text-coral"
-                                : "text-gold"
-                          }`}
-                        >
-                          {r.sentiment}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center text-sm text-mist">{r.seen}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        </Panel>
+        <Panel title="Alias Matches" level={2}>
+          <div className="h-[200px] flex flex-col items-center justify-center">
+            <p className="font-mono text-4xl font-normal italic text-chalk">{overview?.metrics?.active_prompts ?? "0"}</p>
+            <p className="mt-2 text-xs text-mist-dim">Configured brand aliases matched</p>
+          </div>
+        </Panel>
+        <Panel title="Entity Consistency" level={2}>
+          <div className="h-[200px] flex flex-col items-center justify-center">
+            <p className="font-mono text-4xl font-normal italic text-chalk">{overview.metrics?.total_observations ?? 0 > 0 ? Math.round((overview.metrics.brand_mentions / overview.metrics.total_observations) * 100) : "--"}%</p>
+            <p className="mt-2 text-xs text-mist-dim">Consistent brand signals across sources</p>
+          </div>
+        </Panel>
+      </div>
+
+      <Panel title="Brand Presence by Engine" level={2}>
+        <EmptyState title="No brand data" sub="Run visibility scans to collect brand mention data." />
+      </Panel>
+
+      <Panel title="Brand Consistency Findings" level={2}>
+        <EmptyState title="No findings" sub="Add brand aliases and run scans to generate consistency findings." />
       </Panel>
     </div>
   );

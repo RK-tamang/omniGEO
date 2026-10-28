@@ -1,0 +1,1 @@
+Crawler policy and parsing test targets. `fixtures/geo_page.html` contains inert structured data, headings, links, navigation text, and a script marker for extraction tests. Unit tests cover URL canonicalization/SSRF literals, deterministic schema and scoring rules, duplicate similarity, and HTML extraction. Run the suite only when the implementation phase is ready for testing.

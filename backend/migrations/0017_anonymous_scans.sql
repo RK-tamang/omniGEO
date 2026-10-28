@@ -1,0 +1,2 @@
+-- Allow anonymous scans: make workspace_id nullable in crawls
+-- (crawls table is created in migration 0019)

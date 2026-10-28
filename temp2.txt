@@ -1,0 +1,250 @@
+﻿    Ok(Json(StartScanResponse {
+        scan_id: scan_id.to_string(),
+        status: "completed".to_string(),
+    }))
+}
+
+async fn start_visibility_scan(
+    State(state): State<Arc<AppState>>,
+    Json(body): Json<StartScanRequest>,
+) -> Result<Json<StartScanResponse>, ApiError> {
+    let scan_id = Uuid::new_v4();
+    let domain = body.domain.clone();
+
+    // Public visibility scan: record the intent without generating mock AI scores.
+    // Real AI visibility observations require an authenticated project and provider execution.
+    let result = serde_json::json!({
+        "domain": body.domain,
+        "prompts": body.prompts,
+        "scan_id": scan_id,
+        "status": "queued",
+        "note": "Use authenticated visibility runs for real AI provider observations.",
+    });
+
+    sqlx::query(
+        "INSERT INTO crawls (id, workspace_id, url, status, format, result, started_at, completed_at, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, now(), now(), now())",
+    )
+    .bind(scan_id)
+    .bind::<Option<Uuid>>(None)
+    .bind(domain)
+    .bind("completed")
+    .bind("markdown")
+    .bind(result)
+    .execute(&state.pool)
+    .await
+    .map_err(|e| ApiError::Internal(e.into()))?;
+    Ok(Json(StartScanResponse {
+        scan_id: scan_id.to_string(),
+        status: "queued".to_string(),
+    }))
+}
+
+async fn list_scans(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Value>, ApiError> {
+    let rows = sqlx::query(
+        "SELECT id, url, status, pages_crawled, created_at, completed_at FROM crawls ORDER BY created_at DESC LIMIT 50",
+    )
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|e| ApiError::Internal(e.into()))?;
+    let scans: Vec<Value> = rows.into_iter().map(|r| {
+        use sqlx::Row;
+        json!({
+            "id": r.get::<Uuid,_>("id").to_string(),
+            "domain": r.get::<String,_>("url"),
+            "status": r.get::<String,_>("status"),
+            "pages_crawled": r.get::<Option<i32>,_>("pages_crawled").unwrap_or(0),
+            "created_at": r.get::<Option<DateTime<Utc>>,_>("created_at"),
+        })
+    }).collect();
+    Ok(Json(json!({ "scans": scans })))
+}
+
+async fn get_scan(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    let scan_id = Uuid::parse_str(&id).map_err(|_| ApiError::NotFound)?;
+    let row = sqlx::query(
+        "SELECT id, url, status, pages_crawled, result, created_at, completed_at FROM crawls WHERE id = $1",
+    )
+    .bind(scan_id)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|e| ApiError::Internal(e.into()))?;
+    match row {
+        Some(r) => {
+            use sqlx::Row;
+            Ok(Json(json!({
+                "id": r.get::<Uuid,_>("id").to_string(),
+                "domain": r.get::<String,_>("url"),
+                "status": r.get::<String,_>("status"),
+                "pages_crawled": r.get::<Option<i32>,_>("pages_crawled").unwrap_or(0),
+                "result": r.get::<Option<Value>,_>("result").unwrap_or(Value::Null),
+                "created_at": r.get::<Option<DateTime<Utc>>,_>("created_at"),
+                "completed_at": r.get::<Option<DateTime<Utc>>,_>("completed_at"),
+            })))
+        }
+        None => Err(ApiError::NotFound),
+    }
+}
+
+// ============================================================================
+// New dashboard API handlers
+// ============================================================================
+
+#[derive(Deserialize)]
+pub struct UpdatePrompt {
+    pub exact_prompt: Option<String>,
+    pub country: Option<String>,
+    pub language: Option<String>,
+    pub status: Option<String>,
+}
+
+async fn update_prompt(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Path(prompt_id): Path<Uuid>,
+    Json(input): Json<UpdatePrompt>,
+) -> Result<Json<Value>, ApiError> {
+    let project_id: Option<Uuid> = sqlx::query_scalar("SELECT project_id FROM tracked_prompts WHERE id=$1")
+        .bind(prompt_id)
+        .fetch_optional(&state.pool)
+        .await
+        .map_err(|e| ApiError::Internal(e.into()))?;
+    let project_id = project_id.ok_or(ApiError::NotFound)?;
+    let (org, project) = authorize_project(&state, &headers, project_id, false).await?;
+    let _ = org;
+    let mut updates = Vec::new();
+    let mut bind_idx = 1;
+    if let Some(v) = input.exact_prompt {
+        updates.push(format!("exact_prompt=${bind_idx}"));
+        bind_idx += 1;
+    }
+    if let Some(v) = input.country {
+        updates.push(format!("country=${bind_idx}"));
+        bind_idx += 1;
+    }
+    if let Some(v) = input.language {
+        updates.push(format!("language=${bind_idx}"));
+        bind_idx += 1;
+    }
+    if let Some(v) = input.status {
+        updates.push(format!("status=${bind_idx}"));
+        bind_idx += 1;
+    }
+    if updates.is_empty() {
+        return Err(ApiError::Validation("No fields to update.".into()));
+    }
+    updates.push("updated_at=now()".to_string());
+    let sql = format!(
+        "UPDATE tracked_prompts SET {} WHERE id=${bind_idx} AND project_id=${bind_idx_plus1} RETURNING id, exact_prompt, country, language, status, updated_at",
+        updates.join(", "),
+        bind_idx_plus1 = bind_idx + 1
+    );
+    let row = sqlx::query(&sql)
+        .bind(prompt_id)
+        .bind(project)
+        .fetch_optional(&state.pool)
+        .await
+        .map_err(|e| ApiError::Internal(e.into()))?;
+    match row {
+        Some(r) => Ok(Json(json!({
+            "id": r.get::<Uuid,_>("id"),
+            "exact_prompt": r.get::<String,_>("exact_prompt"),
+            "country": r.get::<String,_>("country"),
+            "language": r.get::<String,_>("language"),
+            "status": r.get::<String,_>("status"),
+            "updated_at": r.get::<Option<DateTime<Utc>>,_>("updated_at"),
+        }))),
+        None => Err(ApiError::NotFound),
+    }
+}
+
+async fn delete_prompt(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Path(prompt_id): Path<Uuid>,
+) -> Result<StatusCode, ApiError> {
+    let project_id: Option<Uuid> = sqlx::query_scalar("SELECT project_id FROM tracked_prompts WHERE id=$1")
+        .bind(prompt_id)
+        .fetch_optional(&state.pool)
+        .await
+        .map_err(|e| ApiError::Internal(e.into()))?;
+    let project_id = project_id.ok_or(ApiError::NotFound)?;
+    let (_org, project) = authorize_project(&state, &headers, project_id, false).await?;
+    let affected = sqlx::query("DELETE FROM tracked_prompts WHERE id=$1 AND project_id=$2")
+        .bind(prompt_id)
+        .bind(project)
+        .execute(&state.pool)
+        .await
+        .map_err(|e| ApiError::Internal(e.into()))?;
+    if affected.rows_affected() == 0 {
+        return Err(ApiError::NotFound);
+    }
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Deserialize)]
+pub struct GeneratePrompts {
+    pub project_id: Uuid,
+    pub seed_topics: Option<Vec<String>>,
+    pub category: Option<String>,
+    pub count: Option<i32>,
+}
+
+async fn generate_prompts(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(input): Json<GeneratePrompts>,
+) -> Result<Json<Value>, ApiError> {
+    let (_org, project) = authorize_project(&state, &headers, input.project_id, false).await?;
+    let count = input.count.unwrap_or(5).clamp(1, 50);
+    let category = input.category.as_deref().unwrap_or("general");
+    let seed_topics = input.seed_topics.unwrap_or_default();
+
+    let templates: &[&str] = match category {
+        "comparison" => &[
+            "What are the best {topic} alternatives?",
+            "How does {topic} compare to competitors?",
+            "Which {topic} is best for small business?",
+        ],
+        "purchase" => &[
+            "Where can I buy {topic}?",
+            "Best {topic} to buy in 2025",
+            "Top rated {topic} reviews",
+        ],
+        "informational" => &[
+            "What is {topic} and how does it work?",
+            "How to choose the right {topic}",
+            "Complete guide to {topic}",
+        ],
+        "local" => &[
+            "Best {topic} near me",
+            "Top {topic} in my city",
+            "{topic} services nearby",
+        ],
+        _ => &[
+            "What are the best {topic}?",
+            "How does {topic} work?",
+            "Who offers {topic} services?",
+            "What is {topic} used for?",
+            "Where to find {topic}?",
+        ],
+    };
+
+    let mut generated = Vec::new();
+    for i in 0..(count as usize) {
+        let template = templates[i % templates.len()];
+        let topic = seed_topics.get(i % seed_topics.len()).cloned().unwrap_or_else(|| category.to_string());
+        let prompt = template.replace("{topic}", &topic);
+        generated.push(json!({
+            "prompt": prompt,
+            "category": category,
+            "language": "en",
+            "country": "US",
+        }));
+    }
+

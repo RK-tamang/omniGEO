@@ -11,11 +11,11 @@
  */
 
 export const DASHBOARD_BLOCK_GROUPS = [
-  { id: "visibility", label: "AI Search Visibility" },
-  { id: "audit", label: "GEO Website Audit" },
-  { id: "competitor", label: "Competitor Intelligence" },
-  { id: "content", label: "AI Content Optimization" },
-  { id: "monitoring", label: "Monitoring & Reporting" },
+  { id: "visibility", label: "AI Search Visibility", accent: "#3e7cb0" },
+  { id: "audit", label: "GEO Website Audit", accent: "#39a0a8" },
+  { id: "competitor", label: "Competitor Intelligence", accent: "#d9a441" },
+  { id: "content", label: "AI Content Optimization", accent: "#5fb98a" },
+  { id: "monitoring", label: "Monitoring & Reporting", accent: "#dc6e72" },
 ] as const;
 
 export type DashboardBlockGroup = (typeof DASHBOARD_BLOCK_GROUPS)[number]["id"];
@@ -221,4 +221,11 @@ export function presetBlocks(presetId: string): string[] {
 
 export function blockById(id: string): DashboardBlock | undefined {
   return DASHBOARD_BLOCKS.find((b) => b.id === id);
+}
+
+export function accentForBlock(id: string): string | undefined {
+  const block = blockById(id);
+  if (!block) return undefined;
+  const group = DASHBOARD_BLOCK_GROUPS.find((g) => g.id === block.group);
+  return group?.accent;
 }

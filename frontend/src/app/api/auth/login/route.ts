@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { cookieOptions, createSessionToken, SESSION_COOKIE, SESSION_MAX_AGE } from "@/lib/auth-session";
-import { backendEnabled, backendLoginWithToken } from "@/server/backend-client";
-import { logAuthEvent, verifyCredentials } from "@/server/db";
+import { cookieOptions, createSessionToken, SESSION_COOKIE, SESSION_MAX_AGE } from '@/lib/api-client';
+import { backendLoginWithToken } from "@/lib/api-client";
+
 
 type BackendSession = {
   backendToken?: string;
@@ -12,50 +12,26 @@ type BackendSession = {
   workspaceId?: string;
 };
 
-/**
- * Authenticate against the Fastify backend first; fall back to the local
- * JSON-file user store when the backend is not running or rejects the request.
- */
 async function resolveCredentials(email: string, password: string) {
-  if (backendEnabled()) {
-    const result = await backendLoginWithToken(email, password);
-    if (result.ok && result.data.token) {
-      const user = result.data.user;
-      return {
-        ok: true as const,
-        source: "backend" as const,
-        session: {
-          backendToken: result.data.token,
-          email: user?.email ?? email,
-          name: user?.name ?? email,
-          plan: user?.plan ?? "Starter",
-          userId: user?.id,
-          workspaceId: user?.workspaceId,
-        } satisfies BackendSession,
-      };
-    }
-
-    // The seeded demo account only exists in the local store, so allow local
-    // verification as a fallback rather than locking the frontend out.
-    if (result.status !== 0) {
-      logAuthEvent(email.slice(0, 120), "failed");
-    }
+  const result = await backendLoginWithToken(email, password);
+  if (result.ok && (result.data?.token || result.data?.session_token || result.data?.user)) {
+    const user = result.data?.user || result.data;
+    const backendToken = result.data?.token ?? result.data?.session_token;
+    return {
+      ok: true as const,
+      source: "api" as const,
+      session: {
+        backendToken,
+        email: user?.email ?? email,
+        name: user?.name ?? user?.display_name ?? email,
+        plan: user?.plan ?? "Starter",
+        userId: user?.id,
+        workspaceId: user?.workspaceId,
+      } satisfies BackendSession,
+    };
   }
 
-  const localUser = verifyCredentials(email, password);
-  if (!localUser) return { ok: false as const };
-
-  return {
-    ok: true as const,
-    source: "local" as const,
-    session: {
-      backendToken: undefined,
-      email: localUser.email,
-      name: localUser.name,
-      plan: localUser.plan,
-      userId: localUser.id,
-    } satisfies BackendSession,
-  };
+  return { ok: false as const };
 }
 
 export async function POST(request: Request) {
@@ -75,11 +51,8 @@ export async function POST(request: Request) {
 
   const resolved = await resolveCredentials(email, password);
   if (!resolved.ok) {
-    logAuthEvent(email.slice(0, 120), "failed");
     return NextResponse.json({ ok: false, error: "Invalid email or password." }, { status: 401 });
   }
-
-  logAuthEvent(resolved.session.email, "login");
 
   const token = await createSessionToken({
     email: resolved.session.email,

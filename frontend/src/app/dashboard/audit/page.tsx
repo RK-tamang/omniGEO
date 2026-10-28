@@ -5,9 +5,7 @@ import { DashboardHeader, Panel } from "@/components/dashboard/panel";
 import { IssuesList } from "@/components/dashboard/issues-list";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth-session";
-import { primaryDomain } from "@/server/db";
-import { resolveSettings } from "@/server/settings";
-import { getWorkspaceData } from "@/server/workspace-data";
+import { backendFetch } from "@/lib/api-client";
 import { mergeAudit } from "@/lib/workspace-data";
 
 export const metadata: Metadata = { title: "Site Audit" };
@@ -15,8 +13,15 @@ export const metadata: Metadata = { title: "Site Audit" };
 export default async function AuditPage() {
   const cookieStore = await cookies();
   const session = await verifySessionToken(cookieStore.get(SESSION_COOKIE)?.value);
-  const domain = primaryDomain(await resolveSettings(session));
-  const audit = mergeAudit(await getWorkspaceData());
+
+  const result = await backendFetch<any>("/api/workspace/data", {
+    method: "GET",
+    headers: session?.backendToken ? { Authorization: `Bearer ${session.backendToken}` } : {},
+  });
+
+  const data = result.ok && result.data ? result.data : null;
+  const domain = data?.domains?.[0]?.domain ?? "your domain";
+  const audit = mergeAudit(data);
 
   const critical = audit.issues.filter((i) => i.severity === "Critical").length;
   const warnings = audit.issues.filter((i) => i.severity === "Warning").length;

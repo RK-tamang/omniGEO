@@ -1,30 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthUser } from "@/server/auth";
-import { backendEnabled, backendFetch } from "@/server/backend-client";
-import { getAuthUserWithBackendToken } from "@/server/auth-backend";
+import { cookies } from "next/headers";
+import { SESSION_COOKIE } from "@/lib/auth-session";
+import { api } from "@/lib/api-client";
 
-/** Poll a single scan's status/results from the backend engine. */
+export const dynamic = "force-dynamic";
+
+/**
+ * Poll a geo-audit run for results.
+ *
+ * Proxies GET /api/v1/tools/geo-audit/{id}/results on the backend so the
+ * scan-runner client can poll until status=completed, then open the report.
+ *
+ * Authentication: reads the omni_scan_token cookie set by the scan-start
+ * route (which stores the access_token returned by geo-audit start), falling
+ * back to the answerscope_session cookie for signed-in users. Sends it as an
+ * Authorization: Bearer header, which is what the geo-audit results endpoint
+ * expects.
+ */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const user = await getAuthUser(request);
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  if (!backendEnabled()) {
-    return NextResponse.json({ error: "Scan engine unavailable" }, { status: 503 });
-  }
-
   const { id } = await params;
-  const { backendToken } = await getAuthUserWithBackendToken();
 
-  const proxied = await backendFetch<Record<string, unknown>>(
-    `/api/scans/${encodeURIComponent(id)}`,
-    { method: "GET", token: backendToken ?? undefined },
+  // Read auth token from cookies: scan-start token first, then session token
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  const cookieMap = Object.fromEntries(
+    cookieHeader.split("; ").map((c) => {
+      const [key, ...valParts] = c.split("=");
+      return [key.trim(), valParts.join("=")];
+    }),
   );
 
-  if (!proxied.ok) {
-    return NextResponse.json({ error: proxied.error }, { status: proxied.status || 502 });
+  const token = cookieMap["omni_scan_token"] ?? cookieMap[SESSION_COOKIE] ?? undefined;
+
+  if (!token) {
+    return NextResponse.json(
+      { ok: false, error: "No auth token available" },
+      { status: 401 },
+    );
   }
-  return NextResponse.json(proxied.data);
+
+  const res = await api.getScanResults(id, token);
+
+  if (!res.ok || !res.data) {
+    return NextResponse.json(
+      { ok: false, error: res.error || "Scan not found" },
+      { status: res.status || 404 },
+    );
+  }
+
+  return NextResponse.json({
+    ok: true,
+    scan: res.data,
+  });
 }

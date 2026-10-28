@@ -1,9 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth-session";
-import { backendEnabled, backendFetch } from "@/server/backend-client";
-import { saveSettings } from "@/server/db";
-import { resolveDashboardLayout } from "@/server/settings";
+import { backendFetch } from "@/lib/api-client";
 import {
   DASHBOARD_BLOCKS,
   DASHBOARD_BLOCK_GROUPS,
@@ -30,15 +28,16 @@ export async function GET() {
   const session = await requireSession();
   if (!session) return NextResponse.json({ ok: false, error: "Not signed in." }, { status: 401 });
 
-  // Prefer the backend's stored layout — it is the source of truth when the
-  // backend is running, and the registry it returns is authoritative.
-  if (session.backendToken && backendEnabled()) {
+  if (session.backendToken) {
     const result = await backendFetch<{
       layout: DashboardLayout;
       blocks: typeof DASHBOARD_BLOCKS;
       groups: typeof DASHBOARD_BLOCK_GROUPS;
       presets: typeof DASHBOARD_PRESETS;
-    }>("/api/dashboard/layout", { method: "GET", token: session.backendToken });
+    }>("/api/dashboard/layout", {
+      method: "GET",
+      headers: session.backendToken ? { Authorization: `Bearer ${session.backendToken}` } : {},
+    });
 
     if (result.ok && result.data) {
       return NextResponse.json(
@@ -55,11 +54,10 @@ export async function GET() {
     }
   }
 
-  // No backend: the local JSON store is the source of truth.
   return NextResponse.json(
     {
       ok: true,
-      layout: await resolveDashboardLayout(session),
+      layout: normalizeDashboardLayout({}),
       ...CATALOG,
       source: "local",
     },
@@ -78,10 +76,9 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: false, error: "Invalid request." }, { status: 400 });
   }
 
-  // Normalise before storing — unknown block ids are dropped, never saved.
   const layout = normalizeDashboardLayout(body);
 
-  if (session.backendToken && backendEnabled()) {
+  if (session.backendToken) {
     const result = await backendFetch<{ success: boolean; layout: DashboardLayout }>(
       "/api/dashboard/layout",
       { method: "PATCH", body: layout, token: session.backendToken },
@@ -93,15 +90,13 @@ export async function PATCH(request: Request) {
         { headers: { "Cache-Control": "no-store" } },
       );
     }
-    if (result.status >= 400 && result.status < 500 && result.status !== 401) {
+    if ((result.status ?? 0) >= 400 && (result.status ?? 0) < 500 && (result.status ?? 0) !== 401) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     }
   }
 
-  // Local store is the fallback when the backend is not running.
-  const settings = saveSettings({ dashboardLayout: layout });
   return NextResponse.json(
-    { ok: true, layout: settings.dashboardLayout, source: "local" },
+    { ok: true, layout, source: "local" },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
-type Variant = "primary" | "secondary" | "ghost";
+type Variant = "primary" | "secondary" | "ghost" | "outline";
 type Size = "sm" | "md" | "lg";
 
 const base =
@@ -12,6 +12,7 @@ const variants: Record<Variant, string> = {
     "bg-gradient-to-r from-iris to-aqua text-white shadow-[0_8px_40px_-8px_rgba(62,124,176,0.6)] hover:shadow-[0_8px_48px_-4px_rgba(62,124,176,0.8)] hover:brightness-110",
   secondary: "glass glass-hover text-chalk",
   ghost: "text-mist hover:text-chalk",
+  outline: "border border-line hover:bg-surface-2 hover:text-chalk",
 };
 
 const sizes: Record<Size, string> = {

@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDataForSEOClient } from "@/server/services/dataforseo";
-import { getBillingTracker } from "@/server/services/billing";
-import { getAuthUser } from "@/server/auth";
-import { backendEnabled, backendFetch } from "@/server/backend-client";
-import { getAuthUserWithBackendToken } from "@/server/auth-backend";
+import { cookies } from "next/headers";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth-session";
+import { backendFetch } from "@/lib/api-client";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getAuthUser(request);
-    if (!user) {
+    const cookieStore = await cookies();
+    const session = await verifySessionToken(cookieStore.get(SESSION_COOKIE)?.value);
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -19,54 +20,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Keyword is required" }, { status: 400 });
     }
 
-    // Each grid point is a SERP request.
-    const serpRequests = grid_size === "7x7" ? 49 : 25;
+    const proxied = await backendFetch<{
+      success: boolean;
+      data: { items: unknown[]; gridPoints: number };
+      creditsUsed: number;
+      simulated: boolean;
+      error?: string;
+    }>("/api/v1/dataforseo/maps", {
+      body: { keyword, location_code, language_code, depth, grid_size },
+      headers: session.backendToken ? { Authorization: `Bearer ${session.backendToken}` } : {},
+    });
 
-    // 1. Prefer the backend engine.
-    if (backendEnabled()) {
-      const { backendToken } = await getAuthUserWithBackendToken();
-      const proxied = await backendFetch<{
-        success: boolean;
-        data: { items: unknown[]; gridPoints: number };
-        creditsUsed: number;
-        simulated: boolean;
-        error?: string;
-      }>("/api/dataforseo/maps", {
-        body: { keyword, location_code, language_code, depth, grid_size },
-        token: backendToken ?? undefined,
-      });
-
-      if (proxied.ok) {
-        if (!proxied.data.simulated) {
-          getBillingTracker().recordDataForSEOUsage(user.id, user.workspaceId, "maps_api", proxied.data.creditsUsed || serpRequests, {
-            keyword: String(keyword).slice(0, 100),
-            gridSize: grid_size,
-            source: "backend",
-          });
-        }
-        return NextResponse.json({ ...proxied.data, source: "backend" });
-      }
-
-      if (proxied.status >= 400 && proxied.status < 500 && proxied.status !== 401) {
-        return NextResponse.json({ success: false, error: proxied.error }, { status: 502 });
-      }
+    if (proxied.ok) {
+      return NextResponse.json({ ...proxied.data, source: "backend" });
     }
 
-    // 2. Local fallback.
-    const client = getDataForSEOClient();
-    const result = await client.getMapsRankings({ keyword, location_code, language_code, depth, grid_size });
-
-    // Track usage - each grid point is a SERP request
-    getBillingTracker().recordDataForSEOUsage(user.id, user.workspaceId, "maps_api", serpRequests, {
-      keyword: keyword.slice(0, 100),
-      gridSize: grid_size,
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: result.tasks?.[0]?.result ?? null,
-      source: "local",
-    });
+    return NextResponse.json({ success: false, error: proxied.error }, { status: proxied.status || 502 });
   } catch (error) {
     console.error("Maps API error:", error);
     return NextResponse.json(

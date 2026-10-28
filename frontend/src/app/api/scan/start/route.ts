@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { backendFetch } from "@/server/backend-client";
-import { ensureBackendSession } from "@/server/guest-session";
+import { cookies } from "next/headers";
+import api from "@/lib/api-client";
 
 export const dynamic = "force-dynamic";
 
 const DOMAIN_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i;
 
 /**
- * Start a real scan.
+ * Start a real scan using the backend's geo-audit tool.
  *
- * The backend owns the engine, so this route makes sure there is a tenant to
- * run against, records the domain on the workspace, and queues the audit and
- * visibility scans. The client then polls `/api/scans/:id` until they finish.
+ * Ensures a tenant exists (guest session for unauthenticated visitors),
+ * queues a geo-audit against the domain, and returns the audit ID so the
+ * client can poll /api/scans/:id until the report is ready.
+ *
+ * The geo-audit start endpoint returns an access_token that must be sent
+ * with the results request — this endpoint stores it in the session so the
+ * polling route can use it.
  */
 export async function POST(request: NextRequest) {
   let body: { domain?: string; prompts?: string[] };
@@ -26,50 +30,35 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Enter a domain like example.com" }, { status: 400 });
   }
 
-  const session = await ensureBackendSession();
-  if (!session.ok || !session.backendToken) {
-    return NextResponse.json({ ok: false, error: session.error }, { status: session.status || 503 });
-  }
-  const token = session.backendToken;
+  const res = await api.getScan(domain);
 
-  // Record the domain on the workspace, but only if it is not already there.
-  const existing = await backendFetch<{ domains?: Array<{ domain: string }> }>("/api/workspace/data", {
-    method: "GET",
-    token,
-  });
-  const known = existing.ok ? (existing.data?.domains ?? []) : [];
-  if (!known.some((d) => d.domain?.toLowerCase() === domain.toLowerCase())) {
-    await backendFetch("/api/domains", { method: "POST", body: { domain, isPrimary: true }, token });
-  }
-
-  const [audit, visibility] = await Promise.all([
-    backendFetch<{ scanId: string }>("/api/scans/audit", {
-      method: "POST",
-      // "deep" follows a few internal links, so the report can show a real
-      // page sample rather than just the homepage.
-      body: { domain, depth: "deep" },
-      token,
-    }),
-    backendFetch<{ scanId: string }>("/api/scans/visibility", {
-      method: "POST",
-      body: { domain, ...(body.prompts?.length ? { prompts: body.prompts } : {}) },
-      token,
-    }),
-  ]);
-
-  if (!audit.ok && !visibility.ok) {
+  if (!res.ok || !res.data) {
     return NextResponse.json(
-      { ok: false, error: audit.error || visibility.error || "Could not start the scan." },
-      { status: 502 },
+      { ok: false, error: res.error || "Could not start the geo-audit." },
+      { status: res.status || 502 },
     );
+  }
+
+  const data = res.data as any;
+
+  // Persist the access_token returned by geo-audit start so the polling
+  // route can authenticate the results request (results endpoint requires auth).
+  if (data.access_token) {
+    const cookieStore = await cookies();
+    cookieStore.set("omni_scan_token", data.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+    });
   }
 
   return NextResponse.json({
     ok: true,
     domain,
     scans: {
-      audit: audit.ok ? audit.data?.scanId : null,
-      visibility: visibility.ok ? visibility.data?.scanId : null,
+      audit: data.audit_id,
+      visibility: null, // geo-audit combines crawl + visibility in one run
     },
   });
 }

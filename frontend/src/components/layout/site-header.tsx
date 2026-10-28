@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { mainNav } from "@/lib/site";
 import { Button } from "@/components/ui/button";
 import { AuthIndicator } from "@/components/auth/auth-indicator";
-import { Logo } from "@/components/layout/logo";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 export function SiteHeader() {
@@ -32,8 +31,8 @@ export function SiteHeader() {
       }`}
     >
       <div className="container-page flex h-16 items-center justify-between gap-6">
-        <Link href="/" aria-label="OmniGEO home">
-          <Logo />
+        <Link href="/" className="relative font-display text-xl italic text-chalk" aria-label="OmniGEO home">
+          OmniGEO
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
@@ -56,9 +55,6 @@ export function SiteHeader() {
         <div className="hidden items-center gap-1 md:flex">
           <ThemeToggle />
           <AuthIndicator />
-          <Button variant="ghost" size="sm" href="/contact?intent=demo" className="hidden lg:inline-flex">
-            Book a demo
-          </Button>
           <Button size="sm" href="/pricing">
             Start free trial
           </Button>
@@ -98,9 +94,6 @@ export function SiteHeader() {
             ))}
             <div className="mt-3 flex flex-col gap-2">
               <AuthIndicator className="rounded-xl border border-line py-3 text-center" />
-              <Button variant="secondary" href="/contact?intent=demo">
-                Book a demo
-              </Button>
               <Button href="/pricing">Start free trial</Button>
             </div>
           </div>

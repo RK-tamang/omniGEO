@@ -1,0 +1,10 @@
+version = "geo-readiness-v1"
+label = "GEO Readiness Score"
+warning = "Derived from website audit evidence; not observed AI visibility."
+
+[weights]
+technical = 0.30
+metadata = 0.20
+content_structure = 0.20
+schema = 0.15
+internal_links = 0.15

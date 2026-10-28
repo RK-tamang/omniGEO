@@ -1,221 +1,83 @@
 "use client";
 
-import { useState } from "react";
-import { Panel, ScoreBar, StatusChip } from "@/components/dashboard/panel";
-import { Button } from "@/components/ui/button";
-import { KpiCard, QuickAction, ToolCard, IssueRow } from "@/components/dashboard/shared-components";
+import { useEffect, useState } from "react";
+import { DashboardHeader, Panel, StatusChip } from "@/components/dashboard/panel";
 import { EmptyState } from "@/components/ui/empty-state";
-import { useWorkspaceData } from "@/hooks/use-workspace-data";
-import { mergeAudit } from "@/lib/workspace-data";
-
-const AUDIT_TOOLS = [
-  {
-    id: "geo-audit",
-    name: "Website GEO Audit",
-    description: "Overall technical and content readiness for AI search — comprehensive scorecard",
-    category: "core",
-    status: "active",
-  },
-  {
-    id: "crawler",
-    name: "Website Crawler",
-    description: "Discovers URLs and analyzes pages — JavaScript rendering, content extraction",
-    category: "core",
-    status: "active",
-  },
-  {
-    id: "robots",
-    name: "Robots & Crawlability Checker",
-    description: "Checks crawler access, robots.txt, indexing signals, and AI bot permissions",
-    category: "core",
-    status: "active",
-  },
-  {
-    id: "schema",
-    name: "Schema Markup Validator",
-    description: "Checks relevant structured data — Organization, Article, Product, FAQ, LocalBusiness",
-    category: "core",
-    status: "active",
-  },
-  {
-    id: "entities",
-    name: "Entity Optimization Analyzer",
-    description: "Reviews brand, product, and organization entity consistency across pages",
-    category: "content",
-    status: "active",
-  },
-  {
-    id: "readability",
-    name: "Content Readability Analyzer",
-    description: "Checks clarity, structure, direct answers, and citation-ready formatting",
-    category: "content",
-    status: "active",
-  },
-  {
-    id: "topical-authority",
-    name: "Topical Authority Analyzer",
-    description: "Identifies topic coverage depth, content gaps, and semantic completeness",
-    category: "content",
-    status: "active",
-  },
-  {
-    id: "faq",
-    name: "FAQ Optimization Tool",
-    description: "Finds unanswered questions, FAQ opportunities, and People Also Ask gaps",
-    category: "content",
-    status: "active",
-  },
-  {
-    id: "internal-links",
-    name: "Internal Linking Analyzer",
-    description: "Identifies relevant internal linking gaps and orphan pages",
-    category: "technical",
-    status: "active",
-  },
-  {
-    id: "source-readiness",
-    name: "Source & Citation Readiness",
-    description: "Evaluates whether important claims are clear, verifiable, and citation-ready",
-    category: "content",
-    status: "active",
-  },
-  {
-    id: "technical-monitor",
-    name: "Technical Issue Monitor",
-    description: "Tracks broken pages, redirects, metadata issues, and other technical problems",
-    category: "technical",
-    status: "active",
-  },
-];
+import { Button } from "@/components/ui/button";
+import { KpiCard } from "@/components/dashboard/kpi-card";
+import api from "@/lib/api-client";
 
 export default function GeoAuditPage() {
-  const [activeCategory, setActiveCategory] = useState<"all" | "core" | "content" | "technical">("all");
-  const { data } = useWorkspaceData();
-  const audit = mergeAudit(data);
-  const categoriesPassing = audit.categories.length
-    ? Math.round(
-        (audit.categories.filter((c) => c.score >= 75).length / audit.categories.length) * 100,
-      )
-    : 0;
+  const [loading, setLoading] = useState(true);
+  const [audits, setAudits] = useState<any[]>([]);
 
-  const filteredTools = AUDIT_TOOLS.filter((t) =>
-    activeCategory === "all" ? true : t.category === activeCategory
-  );
+  useEffect(() => {
+    api.getAuditRuns().then((res) => {
+      if (res.ok) setAudits(res.data?.audits ?? res.data ?? []);
+      setLoading(false);
+    });
+  }, []);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-chalk">GEO Website Audit</h1>
-          <p className="mt-1 text-sm text-mist">11 tools — technical, content, and entity readiness for AI search</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button variant="secondary">Export Full Audit</Button>
-          <Button onClick={() => window.open("/dashboard/crawler", "_blank")}>
-            Run Full Crawl
-          </Button>
-        </div>
+      <DashboardHeader
+        title="GEO Website Audit"
+        sub="Run comprehensive GEO audits using crawler snapshots and evidence-backed rules"
+        aside={<Button size="sm">Start GEO Audit</Button>}
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Panel title="Readiness Score" level={2}>
+          <div className="h-[200px] flex flex-col items-center justify-center">
+            <p className="font-mono text-4xl font-normal italic text-chalk">{audits[0]?.score ?? "--"}</p>
+            <p className="mt-2 text-xs text-mist-dim">Overall GEO readiness (0-100)</p>
+          </div>
+        </Panel>
+        <Panel title="Category Scores" level={2}>
+          <div className="h-[200px] flex flex-col items-center justify-center">
+            <p className="font-mono text-4xl font-normal italic text-chalk">{audits[0]?.categories?.length ?? 0}</p>
+            <p className="mt-2 text-xs text-mist-dim">Category breakdown available</p>
+          </div>
+        </Panel>
+        <Panel title="Critical Issues" level={2}>
+          <div className="h-[200px] flex flex-col items-center justify-center">
+            <p className="font-mono text-4xl font-normal italic text-chalk">{audits[0]?.issues_found ?? 0}</p>
+            <p className="mt-2 text-xs text-mist-dim">Critical findings requiring action</p>
+          </div>
+        </Panel>
       </div>
 
-      {/* Score Overview */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Overall GEO Score" value={audit.score} delta={0} unit="pts" />
-        <KpiCard label="Pages Crawled" value={audit.checks} delta={0} />
-        <KpiCard label="Issues Found" value={audit.issues.length} delta={0} invert />
-        <KpiCard label="Categories Passing" value={categoriesPassing} delta={0} unit="%" />
-      </div>
-
-      {/* Category Filter */}
-      <div className="flex gap-2 flex-wrap">
-        {["all", "core", "content", "technical"].map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setActiveCategory(cat as any)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              activeCategory === cat
-                ? "bg-iris/15 text-iris border border-iris/30"
-                : "text-mist hover:bg-surface-2 hover:text-chalk"
-            }`}
-          >
-            {cat === "all" ? "All Tools" : cat.charAt(0).toUpperCase() + cat.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {/* Tool Grid */}
-      <Panel title={`Audit Tools (${filteredTools.length})`} sub="Click any tool to run or view results">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredTools.map((tool) => (
-            <ToolCard
-              key={tool.id}
-              tool={tool}
-              statusColors={{
-                active: "bg-mint/15 text-mint border-mint/30",
-                beta: "bg-aqua/15 text-aqua border-aqua/30",
-                planned: "bg-mist/15 text-mist border-mist/30",
-              }}
-              categoryColors={{
-                core: "bg-iris/15 text-iris border-iris/30",
-                content: "bg-mint/15 text-mint border-mint/30",
-                technical: "bg-aqua/15 text-aqua border-aqua/30",
-              }}
-            />
-          ))}
-        </div>
-      </Panel>
-
-      {/* Quick Actions */}
-      <Panel title="Quick Actions" sub="Common audit workflows" level={2}>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <QuickAction
-            title="Full GEO Audit"
-            description="Run complete technical + content audit"
-            href="/dashboard/geo-audit"
-            icon="clipboard"
-          />
-          <QuickAction
-            title="Crawl Website"
-            description="Discover all URLs with JavaScript rendering"
-            href="/dashboard/crawler"
-            icon="bot"
-          />
-          <QuickAction
-            title="Check Robots.txt"
-            description="Verify AI bot access and crawlability"
-            href="/dashboard/robots"
-            icon="file-text"
-          />
-          <QuickAction
-            title="Validate Schema"
-            description="Check structured data across all pages"
-            href="/dashboard/schema"
-            icon="code"
-          />
-        </div>
-      </Panel>
-
-      {/* Issue Summary */}
-      <Panel title="Top Issues to Fix" sub="Prioritized by impact on AI visibility" level={2}>
-        {audit.issues.length === 0 ? (
-          <EmptyState
-            title="No issues recorded"
-            sub="Run a full crawl and every weakness it finds is listed here with the number of pages it affects."
-          />
+      <Panel title="Audit History" level={2}>
+        {audits.length === 0 ? (
+          <EmptyState title="No audits" sub="Run a GEO audit to see historical results and trends." />
         ) : (
-          <div className="space-y-3">
-            {audit.issues.slice(0, 6).map((issue) => (
-              <IssueRow
-                key={issue.title}
-                severity={issue.severity}
-                title={issue.title}
-                description={issue.detail}
-                count={`${issue.pages} page${issue.pages === 1 ? "" : "s"}`}
-                href="/dashboard/audit"
-              />
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-line font-mono text-[0.58rem] uppercase tracking-widest text-mist-dim">
+                  <th className="pb-3 pr-4 font-normal">Domain</th>
+                  <th className="pb-3 pr-4 font-normal">Score</th>
+                  <th className="pb-3 pr-4 font-normal">Status</th>
+                  <th className="pb-3 font-normal">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {audits.map((a, i) => (
+                  <tr key={i} className="border-b border-line/70">
+                    <td className="py-3 pr-4 font-mono text-[0.68rem] text-chalk">{a.domain || a.root_url || "—"}</td>
+                    <td className="py-3 pr-4 font-mono text-xs text-chalk">{a.score ?? "—"}</td>
+                    <td className="py-3 pr-4"><StatusChip status={a.status === "completed" ? "published" : "pending"} /></td>
+                    <td className="py-3 font-mono text-xs text-mist-dim">{a.created_at ? new Date(a.created_at).toLocaleDateString() : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
+      </Panel>
+
+      <Panel title="Recent Findings" level={2}>
+        <EmptyState title="No findings" sub="Audit findings appear here after a completed website audit." />
       </Panel>
     </div>
   );
